@@ -182,4 +182,3 @@ class RG():
         print("Start moving gripper.")
         result = self.client.write_registers(
             address=0, values=params, unit=65)
-

@@ -14,10 +14,10 @@ class OnRobotEyeNode(Node):
         
         # Munkadarabok hozzárendelése
         self.task_mapping = {
-            #13: "Piros kör",
-            #14: "Piros hatszög",
-            15: "Piros négyzet",
-            #16: "Piros háromszög",
+            #: "Piros kör",
+            #: "Piros hatszög",
+            8: "Piros négyzet",
+            #: "Piros háromszög",
         }
         
         # Kinyerjük a Task ID-kat a szótárból

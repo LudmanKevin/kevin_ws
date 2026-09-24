@@ -14,13 +14,25 @@ DR_init.__dsr__model = ROBOT_MODEL
 
 logger = get_logger('single_robot_simple_logger')
 
+from .onrobot import RG
+import argparse
+
+def get_options():
+        parser = argparse.ArgumentParser(description='Set options.')
+        parser.add_argument('--gripper', dest='gripper', type=str, default="rg2", choices=['rg2', 'rg6'], help='Gripper type')
+        parser.add_argument('--ip', dest='ip', type=str, default="192.168.1.1", help='IP address')
+        parser.add_argument('--port', dest='port', type=str, default="502", help='Port number')
+        return parser.parse_args()
+        
 def main(args=None):
+        options = get_options()
+        rg = RG(options.gripper, options.ip, options.port)
         rclpy.init(args=args)
 
         node = rclpy.create_node('single_robot_simple_py', namespace=ROBOT_ID)
 
         DR_init.__dsr__node = node
-
+        
         try:
                 from DSR_ROBOT2 import print_ext_result, movej, movejx, movesj, movesx, movel, movec, move_periodic, move_spiral, moveb, set_velx, set_accx, set_robot_mode
                 from DSR_ROBOT2 import posj, posx, posb
@@ -34,16 +46,16 @@ def main(args=None):
         set_velx(30, 20) # (mm/sec) (deg/sec)
         set_accx(60, 40) # (mm/sec^2) (deg/sec^2)
 
-        p1= posj(15.91, 42.06, -118.97, -2.94, -102.61, 104.61)
+        p1= posj(-4.89, 1.78, 101.17, 3.36, 75.28, -4.83)
         p2= posj(0, 0, 0, 0, 0, 0)
 
-        movej(p2, vel=100, acc=50)
-        movej(p1, vel=100, acc=50)
+        rg.open_gripper()
+        rg.close_gripper()
 
         while rclpy.ok():
-            movej(p2, vel=100, acc=50)
-            movej(p1, vel=100, acc=50)
-            break
+                movej(p1, vel=100, acc=50)
+                rg.open_gripper()
+                #if 
 
         rclpy.shutdown()
 
