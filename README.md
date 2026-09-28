@@ -23,5 +23,5 @@ ros2 run onrobot_eye_integration onrobot_eye_node
 
 ### 4. Terminál: Program
 ```
-os2 run onrobot_eye_integration onrobot_pickup
+ros2 run onrobot_eye_integration onrobot_pickup
 ```
