@@ -25,6 +25,10 @@ class OnRobotEyeNode(Node):
         self.ip = self.get_parameter('compute_box_ip').value
         self.current_task_index = 0
 
+        # Munkadarab keresés engedélyztető
+        self.inspecting = False
+        self.inspecting_sub = self.create_subscription(Bool, '/onrobot_eye/inspecting', self.enable_inspection_callback, 10)
+
         # ROS 2 Publisher
         self.detection_pub = self.create_publisher(Bool, '/onrobot_eye/object_detected', 10)
 
@@ -39,6 +43,13 @@ class OnRobotEyeNode(Node):
         self.get_logger().info(f"OnRobot Eye Node elindítva. IP: {self.ip}")
         self.get_logger().info(f"Regisztrált munkadarabok: {self.task_mapping}")
 
+    def enable_inspection_callback(self, msg: Bool):
+        self.inspecting = msg.data
+        if self.inspecting:
+            self.get_logger().info("Kamera engedélyezve")
+        else:
+            self.get_logger().info("Kamera letiltva")
+
     def setup_socketio(self):
         @self.sio.on('connect')
         def on_connect():
@@ -46,6 +57,8 @@ class OnRobotEyeNode(Node):
 
         @self.sio.on('message')
         def on_message(data):
+            if self.inspecting == 0:
+                return
             if isinstance(data, dict):
                 try:
                     computebox_data = data.get('computebox', {})
@@ -80,7 +93,6 @@ class OnRobotEyeNode(Node):
             self.get_logger().error(f"Socket.IO csatlakozási hiba: {e}")
 
     def _async_post(self, task_uid):
-        """Aszinkron mérésindítás a megadott task_uid-ra"""
         run_url = f"http://{self.ip}/api/dc/vision/runProcess"
         payload = {"numericUid": task_uid}
         headers = {"Content-Type": "application/json"}
@@ -91,9 +103,9 @@ class OnRobotEyeNode(Node):
         finally:
             self.is_processing = False
 
+    # Munkadarabok vizsgálata cikliskusan
     def trigger_inspection(self):
-        """Következő munkadarab mérésének elindítása ciklikusan"""
-        if not self.is_processing and len(self.task_uids) > 0:
+        if self.inspecting and not self.is_processing and len(self.task_uids) > 0:
             self.is_processing = True
             
             target_uid = self.task_uids[self.current_task_index]
