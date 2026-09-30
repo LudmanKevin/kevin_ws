@@ -65,8 +65,8 @@ class OnRobotEyeNode(Node):
                         time.sleep(1)
                         self.movej(p1, vel=100, acc=50)
                         time.sleep(0.5)
-
                         self.set_camera_inspection(True)
+                        time.sleep(4)
 
                 except Exception as e:
                         self.get_logger().error(f"Hiba a kezdésnél: {e}")
@@ -97,13 +97,13 @@ class OnRobotEyeNode(Node):
                         time.sleep(1)
                         self.movej(p1, vel=100, acc=50)
                         time.sleep(0.5)
-                        self.movej(p3, vel=100, acc=50)
-                        time.sleep(0.5)
+                        #self.movej(p3, vel=100, acc=50)
+                        #time.sleep(0.5)
                         # Ezután majd ráteszi a mobilrobotra
 
                         # Vissza az alaphelyzetbe
-                        self.movej(p1, vel=100, acc=50)
-                        time.sleep(0.5)
+                        #self.movej(p1, vel=100, acc=50)
+                        #time.sleep(0.5)
 
                         # Rakja a munkasztalomra
                         self.movej(asztal, vel=100, acc=50)
@@ -111,7 +111,8 @@ class OnRobotEyeNode(Node):
                         self.rg.open_gripper()
                         time.sleep(1)
                         self.movej(p1, vel=100, acc=50)
-                        time.sleep(0.5)
+                        self.set_camera_inspection(True)
+                        time.sleep(4)
 
                 except Exception as e:
                         self.get_logger().error(f"Hiba a munkadarab felvételénél: {e}")
@@ -140,7 +141,8 @@ def main(args=None):
                 pass
         finally:
                 eye_node.destroy_node()
-                rclpy.shutdown()
+                if rclpy.ok():
+                        rclpy.shutdown()
 
 if __name__ == "__main__":
         main()

@@ -7,15 +7,12 @@ COMPUTE_BOX_IP = "192.168.1.1"
 @app.get("/eye/object-detected")
 def check_object_detection():
     run_url = f"http://{COMPUTE_BOX_IP}/api/dc/vision/runProcess"
-    # Kipróbáljuk a gépkönyv szerinti Inspection / Task eredmény útvonalakat
     results_url = f"http://{COMPUTE_BOX_IP}/api/dc/vision/results"
-    
-    payload = {"numericUid": 15}
     headers = {"Content-Type": "application/json"}
     
     try:
         # 1. Képelemzési folyamat indítása
-        run_res = requests.post(run_url, json=payload, headers=headers, timeout=5.0)
+        run_res = requests.post(run_url, headers=headers, timeout=5.0)
         
         # 2. Utolsó mérés eredményének lekérése
         res_check = requests.get(results_url, timeout=3.0)

@@ -14,10 +14,10 @@ class OnRobotEyeNode(Node):
         
         # Munkadarabok hozzárendelése
         self.task_mapping = {
-            #: "Piros kör",
-            #: "Piros hatszög",
             8: "Piros négyzet",
-            #: "Piros háromszög",
+            #10: "Piros hatszög",
+            #11: "Piros kör",
+            #12: "Piros háromszög",
         }
         
         # Kinyerjük a Task ID-kat a szótárból
@@ -28,10 +28,7 @@ class OnRobotEyeNode(Node):
         # Munkadarab keresés engedélyztető
         self.inspecting = False
         self.inspecting_sub = self.create_subscription(Bool, '/onrobot_eye/inspecting', self.enable_inspection_callback, 10)
-
-        # ROS 2 Publisher
         self.detection_pub = self.create_publisher(Bool, '/onrobot_eye/object_detected', 10)
-
         self.is_processing = False
 
         # Socket.IO Kliens
@@ -41,8 +38,8 @@ class OnRobotEyeNode(Node):
         # Időzítő
         self.timer = self.create_timer(1.0, self.trigger_inspection)
         self.get_logger().info(f"OnRobot Eye Node elindítva. IP: {self.ip}")
-        self.get_logger().info(f"Regisztrált munkadarabok: {self.task_mapping}")
 
+    # Mérés engedélyezés/tiltás kezelő
     def enable_inspection_callback(self, msg: Bool):
         self.inspecting = msg.data
         if self.inspecting:
@@ -61,10 +58,12 @@ class OnRobotEyeNode(Node):
                 return
             if isinstance(data, dict):
                 try:
+                    # Változók kinyerése JSON-ból
                     computebox_data = data.get('computebox', {})
                     variables = computebox_data.get('variable', {})
                     d_output = variables.get('dOutput', [])
 
+                    # Digitális kimenetek ellenőrzése
                     if len(d_output) > 0:
                         has_object = bool(d_output[0])
                         
