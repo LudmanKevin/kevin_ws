@@ -87,30 +87,33 @@ class OnRobotEyeNode(Node):
                         # Pozíciók felvétele
                         p0 = self.posj(0, 0, 0, 0, 0, 0)
                         p2 = self.posj(-4.29, 16.32, 116.44, 3.43, 45.66, -9.97)
-                        p3 = self.posj(-183.03, 1.78, 101.17, 3.36, 75.28, -4.83)
-                        asztal = self.posj(-51.67, 35.45, 76.34, 1.66, 65.37, -52.02)
+                        p3 = self.posj(-183.03, 1.78, 101.17, 3.36, 75.28, -180)
+                        p4 = self.posj(-172.98, 61.46, 81.72, 5.62, 36.46, -180.42)
                         
                         # Program
+                        # Meglátja a munkadarabot, lemegy érte, felveszi
                         self.movej(p2, vel=100, acc=50)
                         time.sleep(0.5)
                         self.rg.close_gripper()
                         time.sleep(1)
                         self.movej(p1, vel=100, acc=50)
                         time.sleep(0.5)
-                        #self.movej(p3, vel=100, acc=50)
-                        #time.sleep(0.5)
-                        # Ezután majd ráteszi a mobilrobotra
 
-                        # Vissza az alaphelyzetbe
-                        #self.movej(p1, vel=100, acc=50)
-                        #time.sleep(0.5)
+                        # Átviszi a robot a munkdarabot a másik oldalra
+                        self.movej(p3, vel=100, acc=50)
+                        time.sleep(0.5)
 
-                        # Rakja a munkasztalomra
-                        self.movej(asztal, vel=100, acc=50)
+                        # Lassan megközelíti a mobilrobotot, lerakja, visszajön
+                        self.movej(p4, vel=10, acc=5)
                         time.sleep(0.5)
                         self.rg.open_gripper()
                         time.sleep(1)
+                        self.movej(p3, vel=10, acc=5)
+                        time.sleep(0.5)
+
+                        # Vissza az alaphelyzetbe
                         self.movej(p1, vel=100, acc=50)
+                        time.sleep(0.5)
                         self.set_camera_inspection(True)
                         time.sleep(4)
 
