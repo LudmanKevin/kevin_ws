@@ -1,10 +1,17 @@
-### Build és source
+## Build és source
 ```
 colcon build --packages-select onrobot_eye_integration
 ```
 ```
 source install/setup.bash
 ```
+
+## Launch
+```
+ros2 launch onrobot_eye_integration pickup_and_putdown_bringup.py
+```
+
+## Külön-külön indítás
 
 ### 1. Terminál: API
 ```
@@ -26,7 +33,7 @@ ros2 run onrobot_eye_integration onrobot_eye_node
 ros2 run onrobot_eye_integration onrobot_pickup
 ```
 
-### Launch
+### 5. Terminál: Kamerakép mentése
 ```
-ros2 launch onrobot_eye_integration pickup_and_putdown_bringup.py
+python3 take_a_picture.py
 ```

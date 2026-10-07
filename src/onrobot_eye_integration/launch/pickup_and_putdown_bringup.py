@@ -40,12 +40,18 @@ def generate_launch_description():
         output='screen'
     )
 
+    take_a_picture = ExecuteProcess(
+        cmd=['python3', 'take_a_picture.py'],
+        output='screen'
+    )
+
     delayed_nodes = TimerAction(
         period=5.0,
         actions=[
             fastapi_server,
             onrobot_eye_node,
-            onrobot_pickup_node
+            onrobot_pickup_node,
+            take_a_picture,
         ]
     )
 

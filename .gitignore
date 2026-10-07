@@ -2,3 +2,5 @@ build/
 install/
 log/
 src/doosan-robot2/
+take_a_picture.py
+camera_view.png
