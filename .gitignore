@@ -2,5 +2,5 @@ build/
 install/
 log/
 src/doosan-robot2/
-take_a_picture.py
+src/onrobot_eye_integration/onrobot_eye_integration/onrobot-rg/
 camera_view.png

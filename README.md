@@ -15,7 +15,7 @@ ros2 launch onrobot_eye_integration pickup_and_putdown_bringup.py
 
 ### 1. Terminál: API
 ```
-uvicorn main:app --reload
+uvicorn src.onrobot_eye_integration.onrobot_eye_integration.api:app --reload
 ```
 
 ### 2. Terminál: Bringup
@@ -35,5 +35,5 @@ ros2 run onrobot_eye_integration onrobot_pickup
 
 ### 5. Terminál: Kamerakép mentése
 ```
-python3 take_a_picture.py
+python3 src/onrobot_eye_integration/onrobot_eye_integration/take_a_picture.py
 ```
