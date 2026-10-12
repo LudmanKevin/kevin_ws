@@ -17,7 +17,7 @@ def generate_launch_description():
         launch_arguments={
             'mode': 'real',
             'model': 'm1013',
-            'host': '192.168.1.2'
+            'host': '192.168.10.2'
         }.items()
     )
 
@@ -41,7 +41,7 @@ def generate_launch_description():
     )
 
     take_a_picture = ExecuteProcess(
-        cmd=['python3', 'take_a_picture.py'],
+        cmd=['python3', 'src/onrobot_eye_integration/onrobot_eye_integration/take_a_picture.py'],
         output='screen'
     )
 

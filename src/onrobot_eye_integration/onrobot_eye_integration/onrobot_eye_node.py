@@ -10,7 +10,7 @@ class OnRobotEyeNode(Node):
     def __init__(self):
         super().__init__('onrobot_eye_node')
         
-        self.declare_parameter('compute_box_ip', '192.168.1.1')
+        self.declare_parameter('compute_box_ip', '192.168.10.1')
         
         # Munkadarabok hozzárendelése
         self.task_mapping = {

@@ -1,0 +1,6 @@
+name: robot_bridge
+topics:
+  /onrobot_eye/object_detected:
+    type: std_msgs/msg/Bool
+    from_domain: 88
+    to_domain: 89

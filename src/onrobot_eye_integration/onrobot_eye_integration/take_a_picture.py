@@ -4,9 +4,10 @@ import base64
 import cv2
 import numpy as np
 import os
+from process_the_picture import WorkpieceDetector
 
 # Onrobot IP cím és süti
-ip = "192.168.1.1"
+ip = "192.168.10.1"
 cookie_token = "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOjAsInJvbGU" \
 "iOjAsImlhdCI6MTc4OTA0OTIyMCwiZXhwIjoxODIwNTg1MjIwfQ.UF-DXb7Ia4Wf8fujQZ" \
 "pZZS4yhHi8UhmKyq1cJADCfxftc29WwmaZcX28QTG_6RKQpmDir5_y6h31b4w_WDt80joY2" \
@@ -28,13 +29,14 @@ Workpieces = {
 }
 
 sio = socketio.Client()
+detector = WorkpieceDetector(mm_per_pixel=0.635)
 
 def extract_and_save_image(raw_data):
     try:
         if isinstance(raw_data, str):
             try:
                 raw_data = json.loads(raw_data)
-            except:
+            except Exception:
                 pass
 
         # Munkadarab keresés
@@ -44,9 +46,9 @@ def extract_and_save_image(raw_data):
                 numeric_id_str = str(numeric_id).strip()
                 part_name = Workpieces.get(numeric_id_str)
                 print(f"Keresett munkadarab: {part_name}")
+            
             # Képből base64
             img_b64 = raw_data.get('Image')
-
             if img_b64:
                 # Data URL előtag törlés
                 if 'base64,' in img_b64:
@@ -59,14 +61,21 @@ def extract_and_save_image(raw_data):
 
                 # Pillanatnyi kép mentése
                 if frame is not None:
+                    result = detector.process_frame(frame)
+                    if result and result['x_mm'] is not None:
+                        print(f"Munkadarab pozíciója: X={result['x_mm']:.2f} mm, Y={result['y_mm']:.2f} mm, Rz={result['angle_deg']:.2f}°")
+                        final_image_to_save = result['annotated_frame']
+                    final_image_to_save = result['annotated_frame'] if result else frame
+                
                     file_name = "camera_view.png"
-                    cv2.imwrite(file_name, frame)
+                    cv2.imwrite(file_name, final_image_to_save)
                     full_path = os.path.abspath(file_name)
                     print(f"A kép elmentve ide: {full_path}")
                     return True, numeric_id
+                
     except Exception as e:
         print("Hiba a kép feldolgozásánál:", e)
-        return False
+    return False
 
 @sio.event
 def connect():

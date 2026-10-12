@@ -20,7 +20,7 @@ uvicorn src.onrobot_eye_integration.onrobot_eye_integration.api:app --reload
 
 ### 2. Terminál: Bringup
 ```
-ros2 launch dsr_bringup2 dsr_bringup2_rviz.launch.py mode:=real model:=m1013 host:=192.168.1.2
+ros2 launch dsr_bringup2 dsr_bringup2_rviz.launch.py mode:=real model:=m1013 host:=192.168.10.2
 ```
 
 ### 3. Terminál: Node

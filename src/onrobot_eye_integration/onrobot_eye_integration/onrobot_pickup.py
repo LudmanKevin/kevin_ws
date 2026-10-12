@@ -12,7 +12,7 @@ ROBOT_MODEL= "m1013"
 def get_options():
         parser = argparse.ArgumentParser(description='Set options.')
         parser.add_argument('--gripper', dest='gripper', type=str, default="rg2", choices=['rg2', 'rg6'], help='Gripper type')
-        parser.add_argument('--ip', dest='ip', type=str, default="192.168.1.1", help='IP address')
+        parser.add_argument('--ip', dest='ip', type=str, default="192.168.10.1", help='IP address')
         parser.add_argument('--port', dest='port', type=str, default="502", help='Port number')
         args, _ = parser.parse_known_args()
         return args
@@ -86,7 +86,7 @@ class OnRobotEyeNode(Node):
                 try:
                         # Pozíciók felvétele
                         p0 = self.posj(0, 0, 0, 0, 0, 0)
-                        p2 = self.posj(-4.29, 16.32, 116.44, 3.43, 45.66, -9.97)
+                        p2 = self.posj(-4.89, 14.66, 118.69, 5.58, 44.97, -7.22)
                         p3 = self.posj(-183.03, 1.78, 101.17, 3.36, 75.28, -180)
                         p4 = self.posj(-172.98, 61.46, 81.72, 5.62, 36.46, -180.42)
                         

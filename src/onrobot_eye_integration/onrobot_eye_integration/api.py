@@ -2,7 +2,7 @@ from fastapi import FastAPI
 import requests
 
 app = FastAPI(title="OnRobot Eye Proxy API")
-COMPUTE_BOX_IP = "192.168.1.1"
+COMPUTE_BOX_IP = "192.168.10.1"
 
 @app.get("/eye/object-detected")
 def check_object_detection():
