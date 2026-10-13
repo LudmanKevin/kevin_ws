@@ -45,6 +45,8 @@ def generate_launch_description():
         output='screen'
     )
 
+    #topic_bridge =
+
     delayed_nodes = TimerAction(
         period=5.0,
         actions=[

@@ -4,3 +4,11 @@ topics:
     type: std_msgs/msg/Bool
     from_domain: 88
     to_domain: 89
+  /goal_pose:
+    type: geometry_msgs/msg/PoseStamped
+    from_domain: 89
+    to_domain: 88
+  /navigate_to_pose/_action/status:
+    type: action_msgs/msg/GoalStatusArray
+    from_domain: 89
+    to_domain: 88
