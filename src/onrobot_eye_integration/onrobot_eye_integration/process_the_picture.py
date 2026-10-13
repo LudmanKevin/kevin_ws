@@ -93,8 +93,12 @@ class WorkpieceDetector:
         cv2.line(annotated_frame, (cx_img, cy_img), (int(x_px)-63, int(y_px)-157), (255, 0, 255), 5)
 
         # Szöveges adatok kiírása
-        info_text = f"X:{dx_mm:.1f}mm Y:{dy_mm:.1f}mm Rz:{angle:.1f}deg"
-        cv2.putText(annotated_frame, info_text, (int(x_px) + 10, int(y_px) + 15),
+        workpiece_cords = f"X:{dx_mm:.1f}mm Y:{dy_mm:.1f}mm Rz:{angle:.1f}deg"
+        cv2.putText(annotated_frame, workpiece_cords, (int(x_px) + 10, int(y_px) + 15),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
+        
+        camera_goto = f"X:{(int(x_px)-575):.1f}mm Y:{((int(y_px)-445)*-1):.1f}mm"
+        cv2.putText(annotated_frame, camera_goto, ((int(x_px)-63) + 25, int(y_px)-157),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
 
         return {

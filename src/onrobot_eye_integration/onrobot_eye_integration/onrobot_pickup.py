@@ -43,7 +43,7 @@ class OnRobotEyeNode(Node):
                 self.ROBOT_MODE_AUTONOMOUS = dsr_functions['ROBOT_MODE_AUTONOMOUS']
 
                 self.rg = RG(options.gripper, options.ip, options.port)
-                self.subscription = self.create_subscription(Bool, '/onrobot_eye/object_detected', self.object_detected_callback, 10) # Mozgás kikapcsolás teszthez
+                #self.subscription = self.create_subscription(Bool, '/onrobot_eye/object_detected', self.object_detected_callback, 10) # Mozgás kikapcsolás teszthez
                 self.inspect_pub = self.create_publisher(Bool, '/onrobot_eye/inspecting', 10)
                 self.get_logger().info(f"OnRobot Eye Node elindítva.")
                 self.is_busy = False
