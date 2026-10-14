@@ -2,8 +2,9 @@ import cv2
 import numpy as np
 
 class WorkpieceDetector:
-    def __init__(self, mm_per_pixel=0.635):
-        self.mm_per_pixel = mm_per_pixel
+    def __init__(self, mm_per_pixel_x = 0.0677, mm_per_pixel_y = 0.0666):
+        self.mm_per_pixel_x = mm_per_pixel_x
+        self.mm_per_pixel_y = mm_per_pixel_y
 
     def static_points(self, image, cx_img, cy_img):
         annotated = image.copy()
@@ -75,30 +76,37 @@ class WorkpieceDetector:
                 'annotated_frame': base_annotated_frame
             }
 
-        # Eltolás számítása a kép középpontjához képest (mm-ben)
-        dx_mm = (x_px - cx_img) * self.mm_per_pixel
-        dy_mm = (cy_img - y_px) * self.mm_per_pixel
+        dx_mm = (cy_img - y_px) * self.mm_per_pixel_x
+        dy_mm = (x_px - cx_img) * self.mm_per_pixel_y
 
         # Rajzolás az ellenőrző képre
         annotated_frame = base_annotated_frame.copy()
         box = cv2.boxPoints(rect)
-        box = np.int0(box)
+        box = np.int64(box)
         
         cv2.drawContours(annotated_frame, [box], 0, (255, 0, 0), 2) # Kék keret munkadarab köré
         cv2.circle(annotated_frame, (int(x_px), int(y_px)), 5, (255, 0, 0), -1) # Kék pont munkadarab közepére
         cv2.line(annotated_frame, (575, 445), (int(x_px), int(y_px)), (0, 255, 255), 2) # Vonal a megfogó és a munkadarab között
         cv2.line(annotated_frame, (575, 445), (cx_img, cy_img), (0, 255, 255), 2) # Vonal a megfogó és a kamera középpontja között
-        cv2.line(annotated_frame, (int(x_px), int(y_px)), (int(x_px)-63, int(y_px)-157), (0, 255, 255), 2) 
-        cv2.circle(annotated_frame, (int(x_px)-63, int(y_px)-157), 10, (255, 0, 255), -1)
-        cv2.line(annotated_frame, (cx_img, cy_img), (int(x_px)-63, int(y_px)-157), (255, 0, 255), 5)
+        
+        # A lila pont helyzetének megtartása a képen (pixeles eltolások megtartása)
+        purple_x_px = int(x_px) - 63
+        purple_y_px = int(y_px) - 157
+        
+        cv2.line(annotated_frame, (int(x_px), int(y_px)), (purple_x_px, purple_y_px), (0, 255, 255), 2) 
+        cv2.circle(annotated_frame, (purple_x_px, purple_y_px), 10, (255, 0, 255), -1)
+        cv2.line(annotated_frame, (cx_img, cy_img), (purple_x_px, purple_y_px), (255, 0, 255), 5)
 
-        # Szöveges adatok kiírása
+        # Szöveges adatok kiírása cserélt X és Y tengelyekkel
         workpiece_cords = f"X:{dx_mm:.1f}mm Y:{dy_mm:.1f}mm Rz:{angle:.1f}deg"
         cv2.putText(annotated_frame, workpiece_cords, (int(x_px) + 10, int(y_px) + 15),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
         
-        camera_goto = f"X:{(int(x_px)-575):.1f}mm Y:{((int(y_px)-445)*-1):.1f}mm"
-        cv2.putText(annotated_frame, camera_goto, ((int(x_px)-63) + 25, int(y_px)-157),
+        # A megfogóhoz viszonyított elmozdulás kiírásánál is megcserélve az X és Y
+        cam_goto_x = ((int(y_px) - 445) * -1) * self.mm_per_pixel_x
+        cam_goto_y = (int(x_px) - 575) * self.mm_per_pixel_y
+        camera_goto = f"X:{cam_goto_x:.1f}mm Y:{cam_goto_y:.1f}mm"
+        cv2.putText(annotated_frame, camera_goto, (purple_x_px + 25, purple_y_px),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
 
         return {

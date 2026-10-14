@@ -29,7 +29,7 @@ Workpieces = {
 }
 
 sio = socketio.Client()
-detector = WorkpieceDetector(mm_per_pixel=0.635)
+detector = WorkpieceDetector(mm_per_pixel_x = 0.0677, mm_per_pixel_y = 0.0666)
 
 def extract_and_save_image(raw_data):
     try:
