@@ -95,12 +95,14 @@ class OnRobotEyeNode(Node):
                         self.set_accx(60, 40) # (mm/sec^2) (deg/sec^2)
 
                         global p1
-                        p1 = self.posj(-13.29, -7.64, 110.68, 3.57, 75.96, -106.14)
+                        p1 = self.posj(-12.57, -7.36, 110.43, 0, 77.08, -104.77)
                         teszt = self.posx(683.25, 227.11, 525.55, 56.43, 176.29, 57.29)
 
                         # Alaphelyzetbe állítás
-                        self.rg.open_gripper()
                         self.movej(p1, vel=100, acc=50)
+                        time.sleep(1)
+                        self.rg.open_gripper()
+                        time.sleep(1)
                         self.set_camera_inspection(True)
                         time.sleep(4)
                         #self.movel(teszt, vel=100, acc=50)

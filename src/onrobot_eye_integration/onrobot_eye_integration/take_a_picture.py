@@ -62,8 +62,9 @@ def extract_and_save_image(raw_data):
                 # Pillanatnyi kép mentése
                 if frame is not None:
                     result = detector.process_frame(frame)
-                    if result and result['x_mm'] is not None:
-                        print(f"Munkadarab pozíciója: X={result['x_mm']:.2f} mm, Y={result['y_mm']:.2f} mm, Rz={result['angle_deg']:.2f}°")
+                    if result and result['x_target'] is not None:
+                        print(f"Munkadarab képi eltolása: dx={result['x_mm']:.2f} mm, dy={result['y_mm']:.2f} mm, Rz={result['angle_deg']:.2f}°")
+                        print(f"Cél pozíció a robotnak: X={result['x_target']:.2f} mm, Y={result['y_target']:.2f} mm, Rz={result['rz_target']:.2f}°")
                         final_image_to_save = result['annotated_frame']
                     final_image_to_save = result['annotated_frame'] if result else frame
                 

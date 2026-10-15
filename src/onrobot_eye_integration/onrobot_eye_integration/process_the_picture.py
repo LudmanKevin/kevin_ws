@@ -2,13 +2,21 @@ import cv2
 import numpy as np
 
 class WorkpieceDetector:
-    def __init__(self, mm_per_pixel_x = 0.0677, mm_per_pixel_y = 0.0666):
+    def __init__(self, mm_per_pixel_x = 0.0677, mm_per_pixel_y = 0.0666,
+                 delta_x_tool = 108.0, delta_y_tool=32.0,
+                 x_home=461.46, y_home=-66.01, z_home=519.98, rz_home=75.23):
         self.mm_per_pixel_x = mm_per_pixel_x
         self.mm_per_pixel_y = mm_per_pixel_y
+        self.delta_x_tool = delta_x_tool
+        self.delta_y_tool = delta_y_tool
+        self.x_home = x_home
+        self.y_home = y_home
+        self.z_home = z_home
+        self.rz_home = rz_home
 
     def static_points(self, image, cx_img, cy_img):
         annotated = image.copy()
-        cv2.circle(annotated, (cx_img, cy_img), 10, (255, 255, 255), -1) # Pont a kamera közepére
+        cv2.circle(annotated, (cy_img, cx_img), 10, (255, 255, 255), -1) # Pont a kamera közepére
         cv2.line(annotated, (560, 430), (590, 460), (255, 255, 255), 5) # A megfogó alatt
         cv2.line(annotated, (560, 460), (590, 430), (255, 255, 255), 5)
         return annotated
@@ -18,7 +26,8 @@ class WorkpieceDetector:
             return None
 
         h, w, _ = frame.shape
-        cx_img, cy_img = w // 2, h // 2
+        cx_img  = h // 2
+        cy_img = w // 2
 
         base_annotated_frame = self.static_points(frame, cx_img, cy_img)
 
@@ -44,7 +53,11 @@ class WorkpieceDetector:
             return {
                 'x_mm': None,
                 'y_mm': None,
+                'x_target': None,
+                'y_target': None,
+                'z_approach': self.z_home,
                 'angle_deg': None,
+                'rz_target': None,
                 'annotated_frame': base_annotated_frame
             }
 
@@ -56,7 +69,11 @@ class WorkpieceDetector:
             return {
                 'x_mm': None,
                 'y_mm': None,
+                'x_target': None,
+                'y_target': None,
+                'z_approach': self.z_home,
                 'angle_deg': None,
+                'rz_target': None,
                 'annotated_frame': base_annotated_frame
             }
 
@@ -64,20 +81,22 @@ class WorkpieceDetector:
         rect = cv2.minAreaRect(largest_contour)
         x_px = rect[0][0]
         y_px = rect[0][1]
-        w_px = rect[1][0]
-        h_px = rect[1][1]
         angle = rect[2]
 
         if y_px > (h-50) or x_px < 50:
             return {
                 'x_mm': None,
                 'y_mm': None,
+                'x_target': None,
+                'y_target': None,
+                'z_approach': self.z_home,
                 'angle_deg': None,
+                'rz_target': None,
                 'annotated_frame': base_annotated_frame
             }
 
-        dx_mm = (cy_img - y_px) * self.mm_per_pixel_x
-        dy_mm = (x_px - cx_img) * self.mm_per_pixel_y
+        dx_mm = (cx_img - y_px) * self.mm_per_pixel_x
+        dy_mm = (x_px - cy_img) * self.mm_per_pixel_y
 
         # Rajzolás az ellenőrző képre
         annotated_frame = base_annotated_frame.copy()
@@ -87,31 +106,39 @@ class WorkpieceDetector:
         cv2.drawContours(annotated_frame, [box], 0, (255, 0, 0), 2) # Kék keret munkadarab köré
         cv2.circle(annotated_frame, (int(x_px), int(y_px)), 5, (255, 0, 0), -1) # Kék pont munkadarab közepére
         cv2.line(annotated_frame, (575, 445), (int(x_px), int(y_px)), (0, 255, 255), 2) # Vonal a megfogó és a munkadarab között
-        cv2.line(annotated_frame, (575, 445), (cx_img, cy_img), (0, 255, 255), 2) # Vonal a megfogó és a kamera középpontja között
+        cv2.line(annotated_frame, (575, 445), (cy_img, cx_img), (0, 255, 255), 2) # Vonal a megfogó és a kamera középpontja között
         
-        # A lila pont helyzetének megtartása a képen (pixeles eltolások megtartása)
+        # A lila pont helyzetének megtartása a képen
         purple_x_px = int(x_px) - 63
         purple_y_px = int(y_px) - 157
         
         cv2.line(annotated_frame, (int(x_px), int(y_px)), (purple_x_px, purple_y_px), (0, 255, 255), 2) 
         cv2.circle(annotated_frame, (purple_x_px, purple_y_px), 10, (255, 0, 255), -1)
-        cv2.line(annotated_frame, (cx_img, cy_img), (purple_x_px, purple_y_px), (255, 0, 255), 5)
+        cv2.line(annotated_frame, (cy_img, cx_img), (purple_x_px, purple_y_px), (255, 0, 255), 5)
 
-        # Szöveges adatok kiírása cserélt X és Y tengelyekkel
+        # Szöveges adatok kiírása
         workpiece_cords = f"X:{dx_mm:.1f}mm Y:{dy_mm:.1f}mm Rz:{angle:.1f}deg"
         cv2.putText(annotated_frame, workpiece_cords, (int(x_px) + 10, int(y_px) + 15),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
         
-        # A megfogóhoz viszonyított elmozdulás kiírásánál is megcserélve az X és Y
+        # A megfogóhoz viszonyított elmozdulás
         cam_goto_x = ((int(y_px) - 445) * -1) * self.mm_per_pixel_x
         cam_goto_y = (int(x_px) - 575) * self.mm_per_pixel_y
         camera_goto = f"X:{cam_goto_x:.1f}mm Y:{cam_goto_y:.1f}mm"
         cv2.putText(annotated_frame, camera_goto, (purple_x_px + 25, purple_y_px),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
+        
+        x_target = self.x_home + (cam_goto_x * 10)
+        y_target = self.y_home - (cam_goto_y * 10)
+        rz_target = self.rz_home - angle
 
         return {
             'x_mm': dx_mm,
             'y_mm': dy_mm,
+            'x_target': x_target,
+            'y_target': y_target,
+            'z_approach': self.z_home,
             'angle_deg': angle,
+            'rz_target': rz_target,
             'annotated_frame': annotated_frame
         }
