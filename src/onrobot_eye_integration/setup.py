@@ -12,7 +12,8 @@ setup(
         ('share/ament_index/resource_index/packages',
             ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
-        (os.path.join('share', package_name, 'launch'), glob('launch/*.py'))
+        (os.path.join('share', package_name, 'launch'), glob('launch/*.py')),
+        (os.path.join('share', package_name, 'config'), glob('config/*.yaml'))
     ],
     install_requires=['setuptools'],
     zip_safe=True,
@@ -25,6 +26,7 @@ setup(
         'console_scripts': [
             'onrobot_eye_node = onrobot_eye_integration.onrobot_eye_node:main',
             'onrobot_pickup = onrobot_eye_integration.onrobot_pickup:main',
+            'take_a_picture = onrobot_eye_integration.take_a_picture:main'
         ],
     },
 )

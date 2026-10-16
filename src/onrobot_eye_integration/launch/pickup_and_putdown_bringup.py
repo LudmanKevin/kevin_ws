@@ -40,12 +40,24 @@ def generate_launch_description():
         output='screen'
     )
 
-    take_a_picture = ExecuteProcess(
-        cmd=['python3', 'src/onrobot_eye_integration/onrobot_eye_integration/take_a_picture.py'],
+    take_a_picture_node = Node(
+        package='onrobot_eye_integration',
+        executable='take_a_picture',
+        name='take_a_picture_node',
         output='screen'
     )
 
-    #topic_bridge =
+    topic_bridge_node = Node(
+        package='domain_bridge',
+        executable='domain_bridge',
+        name='topic_bridge_node',
+        arguments=os.path.join(
+            get_package_share_directory('onrobot_eye_integration'),
+            'config',
+            'topic_bridge.yaml'
+            ),
+        output='screen'
+    )
 
     delayed_nodes = TimerAction(
         period=5.0,
@@ -53,7 +65,8 @@ def generate_launch_description():
             fastapi_server,
             onrobot_eye_node,
             onrobot_pickup_node,
-            take_a_picture,
+            take_a_picture_node,
+            topic_bridge_node
         ]
     )
 

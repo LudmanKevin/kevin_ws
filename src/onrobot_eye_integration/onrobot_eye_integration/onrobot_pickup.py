@@ -8,6 +8,7 @@ from action_msgs.msg import GoalStatusArray, GoalStatus
 from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy
 from rclpy.callback_groups import ReentrantCallbackGroup
 from rclpy.executors import MultiThreadedExecutor
+from geometry_msgs.msg import Pose2D
 
 # Robot ID és modell
 ROBOT_ID   = "dsr01"
@@ -28,10 +29,9 @@ class OnRobotEyeNode(Node):
 
                 self.cgb = ReentrantCallbackGroup()
                 qos_status = QoSProfile(
-                reliability=ReliabilityPolicy.BEST_EFFORT,
-                history=HistoryPolicy.KEEP_LAST,
-                depth=10
-                )
+                        reliability=ReliabilityPolicy.BEST_EFFORT,
+                        history=HistoryPolicy.KEEP_LAST,
+                        depth=10)
 
                 self.movej = dsr_functions['movej']
                 self.movel = dsr_functions['movel']
@@ -44,10 +44,11 @@ class OnRobotEyeNode(Node):
 
                 self.rg = RG(options.gripper, options.ip, options.port)
                 #self.subscription = self.create_subscription(Bool, '/onrobot_eye/object_detected', self.object_detected_callback, 10) # Mozgás kikapcsolás teszthez
+                self.target_sub = self.create_subscription(Pose2D, '/target_pose', self.target_pose_callback, 10, callback_group=self.cgb)
                 self.inspect_pub = self.create_publisher(Bool, '/onrobot_eye/inspecting', 10)
-                self.get_logger().info(f"OnRobot Eye Node elindítva.")
-                self.is_busy = False
                 self.start_timer = self.create_timer(1.0, self.start_sequence)
+                self.is_busy = False
+                self.get_logger().info(f"OnRobot Eye Node elindítva.")
                 
                 self.pose_sub = self.create_subscription(GoalStatusArray, '/navigate_to_pose/_action/status', self.nav_status_callback, qos_profile=qos_status, callback_group=self.cgb)
                 self.last_status = None
@@ -69,8 +70,6 @@ class OnRobotEyeNode(Node):
 
                         if self.latest_status != self.last_status:
                                 self.last_status = self.latest_status
-                                status_text = self.status_names.get(self.latest_status)
-
                                 if self.latest_status == GoalStatus.STATUS_SUCCEEDED:
                                         self.get_logger().info("A mobilrobot elérte a célpontot.")
 
@@ -91,85 +90,88 @@ class OnRobotEyeNode(Node):
                         self.set_robot_mode(self.ROBOT_MODE_AUTONOMOUS)
 
                         # Globális sebesség és gyorsulás értékek
-                        self.set_velx(30, 20) # (mm/sec) (deg/sec)
-                        self.set_accx(60, 40) # (mm/sec^2) (deg/sec^2)
+                        self.set_velx(30, 20) # (mm/sec), (deg/sec)
+                        self.set_accx(60, 40) # (mm/sec^2), (deg/sec^2)
 
-                        global p1
-                        p1 = self.posj(-12.57, -7.36, 110.43, 0, 77.08, -104.77)
-                        teszt = self.posx(683.25, 227.11, 525.55, 56.43, 176.29, 57.29)
+                        global robot_home
+                        robot_home = self.posj(-12.57, -7.36, 110.43, 0, 77.08, -104.77)
 
                         # Alaphelyzetbe állítás
-                        self.movej(p1, vel=100, acc=50)
+                        self.movej(robot_home, vel=100, acc=50)
                         time.sleep(1)
                         self.rg.open_gripper()
                         time.sleep(1)
                         self.set_camera_inspection(True)
                         time.sleep(4)
-                        #self.movel(teszt, vel=100, acc=50)
 
                 except Exception as e:
                         self.get_logger().error(f"Hiba a kezdésnél: {e}")
 
-        # Robot státusz ellenőrzése és kamera engedélyezés/tiltás vezérlése
-        def object_detected_callback(self, msg):
-                if msg.data and self.is_busy == False:
-                        self.get_logger().info("Munkadarab észlelve!")
+        def target_pose_callback(self, msg: Pose2D):
+                if self.is_busy == False:
                         self.is_busy = True
+                        self.get_logger().info(f"Új célpozíció érkezett: X={msg.x:.2f} mm, Y={msg.y:.2f} mm, Rz={msg.theta:.2f}°")
                         self.set_camera_inspection(False)
-                        self.perform_pickup()
+                        self.perform_pickup(msg.x, msg.y, msg.theta)
                         self.set_camera_inspection(True)
                         self.is_busy = False
-
-        # Pozíciók és mozgások 
-        def perform_pickup(self):
+        
+        # Pozíciók és mozgások
+        def perform_pickup(self, x_target, y_target, rz_target):
                 try:
                         # Pozíciók felvétele
-                        p0 = self.posj(0, 0, 0, 0, 0, 0)
-                        p2 = self.posj(-4.89, 14.66, 118.69, 5.58, 44.97, -7.22)
-                        p3 = self.posj(-183.03, 1.78, 101.17, 3.36, 75.28, -180)
-                        p4 = self.posj(-172.98, 61.46, 81.72, 5.62, 36.46, -180.42)
+                        rx_base = 167.43
+                        ry_base = 179.84
+
+                        z_home = 519.98
+                        z_pick = 246.0
+
+                        above_workpiece = self.posx(x_target, y_target, z_home, rx_base, ry_base, rz_target)
+                        pickup_workpiece = self.posx(x_target, y_target, z_pick, rx_base, ry_base, rz_target)
                         
-                        # Program
-                        # Meglátja a munkadarabot, lemegy érte, felveszi
-                        self.movej(p2, vel=100, acc=50)
+                        prepare_to_place = self.posj(-183.03, 1.78, 101.17, 3.36, 75.28, -180)
+                        place_down = self.posj(-172.98, 61.46, 81.72, 5.62, 36.46, -180.42)
+
+                        # Elemgyünk a megtalált munkadarab fölé
+                        self.movel(above_workpiece, vel=100, acc=50)
+                        time.sleep(0.5)
+
+                        # Lemegyünk érte és megfogjuk
+                        self.movel(pickup_workpiece, vel=100, acc=50)
                         time.sleep(0.5)
                         self.rg.close_gripper()
                         time.sleep(1)
-                        self.movej(p1, vel=100, acc=50)
+
+                        # Felemeljük a munkadarabot és átvisszük a másik oldalra
+                        self.movel(above_workpiece, vel=100, acc=50)
+                        time.sleep(0.5)
+                        self.movej(prepare_to_place, vel=100, acc=50)
                         time.sleep(0.5)
 
-                        # Átviszi a robot a munkdarabot a másik oldalra
-                        self.movej(p3, vel=100, acc=50)
-                        time.sleep(0.5)
-
-                        # Lassan megközelíti a mobilrobotot, lerakja, visszajön
-                        
+                        # Ha a mobilrobot nem éri el a pakolópontot 60s-en bellül, akkor visszafordulunk
                         start_time = time.time()
                         while self.latest_status != GoalStatus.STATUS_SUCCEEDED:
                                 self.get_logger().info(f"Legutóbbi státusz: {self.latest_status}")
-                                time.sleep(0.2)
-
+                                time.sleep(0.5)
                                 if time.time() - start_time > 60:
                                         self.get_logger().warn("A mobilrobot nem érkezett meg a célpontra a várakozási időn belül.")
                                         break
 
+                        # Ha a mobilrobot elérte a pakolópontot, akkor rárakjuk a munkadarabot
                         if self.latest_status == GoalStatus.STATUS_SUCCEEDED:
-                                self.movej(p4, vel=10, acc=5)
+                                self.movej(place_down, vel=10, acc=5)
                                 time.sleep(0.5)
                                 self.rg.open_gripper()
                                 time.sleep(1)
-                                self.movej(p3, vel=10, acc=5)
+                                self.movej(prepare_to_place, vel=10, acc=5)
                                 time.sleep(0.5)
 
-                        # Vissza az alaphelyzetbe
-                        self.movej(p1, vel=100, acc=50)
+                        # Visszatérünk a kiidnuló pontba
+                        self.movej(robot_home, vel=100, acc=50)
                         time.sleep(0.5)
-                        self.set_camera_inspection(True)
-                        time.sleep(4)
 
                 except Exception as e:
                         self.get_logger().error(f"Hiba a munkadarab felvételénél: {e}")
-
 def main(args=None):
         rclpy.init(args=args)
         options = get_options()

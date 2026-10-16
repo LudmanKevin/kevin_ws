@@ -4,7 +4,31 @@ import base64
 import cv2
 import numpy as np
 import os
-from process_the_picture import WorkpieceDetector
+from .process_the_picture import WorkpieceDetector
+import rclpy
+from rclpy.node import Node
+from geometry_msgs.msg import Pose2D
+
+class PictureInfoNode(Node):
+    def __init__(self):
+        super().__init__('picture_info_node')
+        self.pose_publisher = self.create_publisher(Pose2D, '/target_pose', 10)
+        self.detector = WorkpieceDetector(
+            mm_per_pixel_x = 0.0677,
+            mm_per_pixel_y = 0.0666,
+            delta_x_tool = 108.0,
+            delta_y_tool = 32.0,
+            x_home = 461.46,
+            y_home = -66.01,
+            z_home = 519.98
+        )
+
+    def publish_target(self, x_target, y_target, angle_deg):
+        msg = Pose2D()
+        msg.x = float(x_target)
+        msg.y = float(y_target)
+        msg.theta = float(angle_deg)
+        self.pose_publisher.publish(msg)
 
 # Onrobot IP cím és süti
 ip = "192.168.10.1"
@@ -29,15 +53,16 @@ Workpieces = {
 }
 
 sio = socketio.Client()
-detector = WorkpieceDetector(mm_per_pixel_x = 0.0677, mm_per_pixel_y = 0.0666)
+picture_node = None
 
 def extract_and_save_image(raw_data):
+    global picture_node
     try:
         if isinstance(raw_data, str):
             try:
                 raw_data = json.loads(raw_data)
-            except Exception:
-                pass
+            except Exception as e:
+                print("JSON parse hiba: {e}")
 
         # Munkadarab keresés
         if isinstance(raw_data, dict):
@@ -60,18 +85,30 @@ def extract_and_save_image(raw_data):
                 frame = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
 
                 # Pillanatnyi kép mentése
-                if frame is not None:
-                    result = detector.process_frame(frame)
+                if frame is not None and picture_node is not None:
+                    result = picture_node.detector.process_frame(frame)
                     if result and result['x_target'] is not None:
                         print(f"Munkadarab képi eltolása: dx={result['x_mm']:.2f} mm, dy={result['y_mm']:.2f} mm, Rz={result['angle_deg']:.2f}°")
                         print(f"Cél pozíció a robotnak: X={result['x_target']:.2f} mm, Y={result['y_target']:.2f} mm, Rz={result['rz_target']:.2f}°")
+
+                        picture_node.publish_target(
+                            result['x_target'],
+                            result['y_target'],
+                            result['angle_deg']
+                            )
+
                         final_image_to_save = result['annotated_frame']
-                    final_image_to_save = result['annotated_frame'] if result else frame
-                
-                    file_name = "camera_view.png"
-                    cv2.imwrite(file_name, final_image_to_save)
-                    full_path = os.path.abspath(file_name)
-                    print(f"A kép elmentve ide: {full_path}")
+                    else:
+                        final_image_to_save = result['annotated_frame'] if result else frame
+
+                    ws_dir = os.path.expanduser('~')
+                    file_path = os.path.join(ws_dir, "kevin_ws", "camera_view.png")
+
+                    success = cv2.imwrite(file_path, final_image_to_save)
+                    if success:
+                        print(f"A kép elmentve ide: {file_path}")
+                    else:
+                        print(f"HIBA: A képet nem sikerült elmenteni ide: {file_path}")
                     return True, numeric_id
                 
     except Exception as e:
@@ -93,16 +130,29 @@ def on_vision_message(data):
     print("\n[ESEMÉNY]: 'vision_message' érkezett!")
     extract_and_save_image(data)
 
-try:
-    # Webszerver
-    sio.connect(
-        f'http://{ip}', 
-        headers={'Cookie': f'jwt={cookie_token}'}, 
-        transports=['websocket', 'polling']
-    )
+def main():
+    global picture_node
 
-    # Folyamatos eseményfigyelés
-    sio.wait()
+    rclpy.init()
+    picture_node = PictureInfoNode()
 
-except Exception as e:
-    print("Hiba történt:", e)
+    try:
+        # Webszerver
+        sio.connect(
+            f'http://{ip}', 
+            headers={'Cookie': f'jwt={cookie_token}'}, 
+            transports=['websocket', 'polling']
+            )
+
+        # Folyamatos eseményfigyelés
+        sio.wait()
+
+    except Exception as e:
+        print("Hiba történt:", e)
+    finally:
+        if picture_node is not None:
+            picture_node.destroy_node()
+        rclpy.shutdown()
+
+if __name__ == '__name__':
+    main()

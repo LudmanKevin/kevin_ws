@@ -40,5 +40,5 @@ python3 src/onrobot_eye_integration/onrobot_eye_integration/take_a_picture.py
 
 ### 6. Terminál: Topic híd
 ```
-ros2 run domain_bridge domain_bridge /home/arnl/kevin_ws/src/topic_bridge.yaml
+ros2 run domain_bridge domain_bridge /home/arnl/kevin_ws/src/onrobot_eye_integration/onrobot_eye_integration/config/topic_bridge.yaml
 ```
