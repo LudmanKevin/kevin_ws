@@ -21,8 +21,8 @@ class OnRobotEyeNode(Node):
         # Munkadarabok hozzárendelése
         self.task_mapping = {
             8: "Piros négyzet",
-            #10: "Piros hatszög",
-            #11: "Piros kör",
+            10: "Piros hatszög",
+            11: "Piros kör",
             #12: "Piros háromszög",
         }
         

@@ -48,11 +48,13 @@ class OnRobotEyeNode(Node):
                 self.target_sub = self.create_subscription(Pose2D, '/onrobot_eye/target_pose', self.target_pose_callback, 10, callback_group=self.cgb) # Mozgás kikapcsolás teszthez
                 self.inspect_pub = self.create_publisher(Bool, '/onrobot_eye/inspecting', 10)
                 self.state_pub = self.create_publisher(Int32, '/onrobot_eye/robot_state', qos_profile=qos_status)
+                self.workpiece_type_sub = self.create_subscription(String, '/onrobot_eye/workpiece_type', self.which_workpiece, qos_profile=qos_status)
 
                 self.waiting_timer = self.create_timer(1.0, self.start_sequence)
                 self.robot_state = 0
                 self.pending_target = None
                 self.is_busy = False
+                self.workpiece_type = None
                 self.get_logger().info(f"OnRobot Eye Node elindítva.")
                 
                 self.pose_sub = self.create_subscription(GoalStatusArray, '/navigate_to_pose/_action/status', self.nav_status_callback, qos_profile=qos_status, callback_group=self.cgb)
@@ -81,6 +83,9 @@ class OnRobotEyeNode(Node):
                 msg.data = robot_state
                 self.state_pub.publish(msg)
                 self.robot_state = robot_state
+
+        def which_workpiece(self, msg: String):
+                self.workpiece_type = msg.data
         
         def nav_status_callback(self, msg: GoalStatusArray):
                 if msg.status_list:
@@ -90,7 +95,7 @@ class OnRobotEyeNode(Node):
                                 self.last_status = self.latest_status
                                 if self.latest_status == GoalStatus.STATUS_SUCCEEDED:
                                         self.get_logger().info("A mobilrobot elérte a célpontot.")
-
+                                        
         # Kamera engedélyezés/tiltás
         def set_camera_inspection(self, enabled: Bool):
                 msg = Bool()
@@ -175,7 +180,9 @@ class OnRobotEyeNode(Node):
                         pickup_workpiece = self.posx(x_target, y_target, z_pick, rx_base, ry_base, rz_target)
                         
                         prepare_to_place = self.posj(-183.03, 1.78, 101.17, 3.36, 75.28, -180)
-                        place_down = self.posj(-172.98, 61.46, 81.72, 5.62, 36.46, -180.42)
+                        place_down_red_square = self.posj(-178.06, 84.44, 27.64, 0, 64.11, -175.2)
+                        place_down_red_hexagon = self.posj(-176.65, 71.87, 56.02, 0, 48.33, -173.71)
+                        place_down_red_circle = self.posj(-176.28, 64.26, 74.37, 0, 37.59, -173.27)
 
                         # Elemgyünk a megtalált munkadarab fölé
                         self.movel(above_workpiece, vel=100, acc=50)
@@ -192,25 +199,35 @@ class OnRobotEyeNode(Node):
                         time.sleep(0.5)
                         self.movej(prepare_to_place, vel=100, acc=50)
                         time.sleep(0.5)
-
+                        
                         # Ha a mobilrobot nem éri el a pakolópontot 60s-en bellül, akkor visszafordulunk
                         waiting_for_mobilrobot = time.time()
                         while self.latest_status != GoalStatus.STATUS_SUCCEEDED:
                                 self.get_logger().info(f"Legutóbbi státusz: {self.latest_status}")
                                 time.sleep(0.2)
-                                if time.time() - waiting_for_mobilrobot >= 5:
+                                if time.time() - waiting_for_mobilrobot >= 60:
                                         self.get_logger().warn("A mobilrobot nem érkezett meg a célpontra a várakozási időn belül.")
                                         break
-
-                        # Ha a mobilrobot elérte a pakolópontot, akkor rárakjuk a munkadarabot
+                                        
+                        # Ha a mobilrobot elérte a pakolópontot, akkor rárakjuk a munkadarabokat a megfelelő helyeikre
                         if self.latest_status == GoalStatus.STATUS_SUCCEEDED:
-                                self.movej(place_down, vel=10, acc=5)
-                                time.sleep(0.5)
-                                self.rg.open_gripper()
-                                time.sleep(1)
-                                self.movej(prepare_to_place, vel=10, acc=5)
-                                time.sleep(0.5)
+                                place_down_position = None
+                                
+                                if self.workpiece_type == 'Piros négyzet':
+                                        place_down_position = place_down_red_square
+                                elif self.workpiece_type == 'Piros hatszög':
+                                        place_down_position = place_down_red_hexagon
+                                elif self.workpiece_type == 'Piros kör':
+                                        place_down_position = place_down_red_circle
 
+                                if place_down_position is not None:
+                                        self.movej(place_down_position, vel=10, acc=5)
+                                        time.sleep(0.5)
+                                        self.rg.open_gripper()
+                                        time.sleep(1)
+                                        self.movej(prepare_to_place, vel=10, acc=5)
+                                        time.sleep(0.5)
+                        
                         # Visszatérünk a kiidnuló pontba
                         self.movej(robot_home, vel=100, acc=50)
                         time.sleep(0.5)
