@@ -8,11 +8,21 @@ from .process_the_picture import WorkpieceDetector
 import rclpy
 from rclpy.node import Node
 from geometry_msgs.msg import Pose2D
+from std_msgs.msg import String
+from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy
 
 class PictureInfoNode(Node):
     def __init__(self):
         super().__init__('picture_info_node')
-        self.pose_publisher = self.create_publisher(Pose2D, '/target_pose', 10)
+
+        qos_status = QoSProfile(
+            reliability=ReliabilityPolicy.BEST_EFFORT,
+            history=HistoryPolicy.KEEP_LAST,
+            depth=10
+        )
+
+        self.pose_publisher = self.create_publisher(Pose2D, '/onrobot_eye/target_pose', 10)
+        self.workpiece_type_pub = self.create_publisher(String, '/onrobot_eye/workpiece_type', qos_profile=qos_status)
         self.detector = WorkpieceDetector(
             mm_per_pixel_x = 0.0677,
             mm_per_pixel_y = 0.0666,
@@ -29,6 +39,11 @@ class PictureInfoNode(Node):
         msg.y = float(y_target)
         msg.theta = float(angle_deg)
         self.pose_publisher.publish(msg)
+
+    def publish_workpiece_name(self, name_str):
+        msg = String()
+        msg.data = name_str
+        self.workpiece_type_pub.publish(msg)
 
 # Onrobot IP cím és süti
 ip = "192.168.10.1"
@@ -65,6 +80,7 @@ def extract_and_save_image(raw_data):
                 print("JSON parse hiba: {e}")
 
         # Munkadarab keresés
+
         if isinstance(raw_data, dict):
             numeric_id = raw_data.get('Uid')
             if numeric_id is not None:
@@ -97,18 +113,19 @@ def extract_and_save_image(raw_data):
                             result['angle_deg']
                             )
 
+                        picture_node.publish_workpiece_name(part_name)
+
                         final_image_to_save = result['annotated_frame']
                     else:
                         final_image_to_save = result['annotated_frame'] if result else frame
 
                     ws_dir = os.path.expanduser('~')
                     file_path = os.path.join(ws_dir, "kevin_ws", "camera_view.png")
-
+                    
                     success = cv2.imwrite(file_path, final_image_to_save)
                     if success:
                         print(f"A kép elmentve ide: {file_path}")
-                    else:
-                        print(f"HIBA: A képet nem sikerült elmenteni ide: {file_path}")
+
                     return True, numeric_id
                 
     except Exception as e:

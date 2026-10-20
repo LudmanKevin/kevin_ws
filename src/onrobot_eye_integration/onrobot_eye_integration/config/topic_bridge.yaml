@@ -1,13 +1,30 @@
 name: robot_bridge
 topics:
-  /onrobot_eye/object_detected:
+
+  # Doosan -> Neobotix
+
+  /onrobot_eye/workpiece_existence:
     type: std_msgs/msg/Bool
     from_domain: 88
     to_domain: 89
+
+  /onrobot_eye/workpiece_type:
+    type: std_msgs/msg/String
+    from_domain: 88
+    to_domain: 89
+
+  /onrobot_eye/robot_state:
+    type: std_msgs/msg/Int32
+    from_domain: 88
+    to_domain: 89
+
+  # Neobotix -> Doosan
+
   /goal_pose:
     type: geometry_msgs/msg/PoseStamped
     from_domain: 89
     to_domain: 88
+
   /navigate_to_pose/_action/status:
     type: action_msgs/msg/GoalStatusArray
     from_domain: 89

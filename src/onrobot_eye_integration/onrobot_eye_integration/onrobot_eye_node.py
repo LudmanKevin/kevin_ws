@@ -4,10 +4,17 @@ from std_msgs.msg import Bool
 import socketio
 import requests
 import threading
+from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy
 
 class OnRobotEyeNode(Node):
     def __init__(self):
         super().__init__('onrobot_eye_node')
+
+        qos_status = QoSProfile(
+        reliability=ReliabilityPolicy.BEST_EFFORT,
+        history=HistoryPolicy.KEEP_LAST,
+        depth=10
+        )
         
         self.declare_parameter('compute_box_ip', '192.168.10.1')
         
@@ -27,7 +34,7 @@ class OnRobotEyeNode(Node):
         # Munkadarab keresés engedélyztető
         self.inspecting = False
         self.inspecting_sub = self.create_subscription(Bool, '/onrobot_eye/inspecting', self.enable_inspection_callback, 10)
-        self.detection_pub = self.create_publisher(Bool, '/onrobot_eye/object_detected', 10)
+        self.workpiece_existence_pub = self.create_publisher(Bool, '/onrobot_eye/workpiece_existence', qos_profile=qos_status)
         self.is_processing = False
 
         # Socket.IO Kliens
@@ -72,7 +79,7 @@ class OnRobotEyeNode(Node):
                         
                         msg = Bool()
                         msg.data = has_object
-                        self.detection_pub.publish(msg)
+                        self.workpiece_existence_pub.publish(msg)
 
                         if has_object:
                             self.get_logger().info(f"'{active_name}' érzékelve.")

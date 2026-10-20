@@ -66,7 +66,7 @@ def generate_launch_description():
             onrobot_eye_node,
             onrobot_pickup_node,
             take_a_picture_node,
-            topic_bridge_node
+            #topic_bridge_node
         ]
     )
 

@@ -130,7 +130,7 @@ class WorkpieceDetector:
         
         x_target = self.x_home + (cam_goto_x * 10)
         y_target = self.y_home - (cam_goto_y * 10)
-        rz_target = self.rz_home - angle
+        rz_target = self.rz_home + (90 - angle)
 
         return {
             'x_mm': dx_mm,

@@ -35,7 +35,7 @@ ros2 run onrobot_eye_integration onrobot_pickup
 
 ### 5. Terminál: Kamerakép mentése
 ```
-python3 src/onrobot_eye_integration/onrobot_eye_integration/take_a_picture.py
+ros2 run onrobot_eye_integration take_a_picture
 ```
 
 ### 6. Terminál: Topic híd
