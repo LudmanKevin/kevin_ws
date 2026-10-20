@@ -1,7 +1,7 @@
 import rclpy
 import argparse
 from rclpy.node import Node
-from std_msgs.msg import Bool, Int32
+from std_msgs.msg import Bool, Int32, String
 from .onrobot import RG
 import time
 from action_msgs.msg import GoalStatusArray, GoalStatus
