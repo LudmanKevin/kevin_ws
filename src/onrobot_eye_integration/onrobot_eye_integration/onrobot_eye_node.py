@@ -34,7 +34,7 @@ class OnRobotEyeNode(Node):
         # Munkadarab keresés engedélyztető
         self.inspecting = False
         self.inspecting_sub = self.create_subscription(Bool, '/onrobot_eye/inspecting', self.enable_inspection_callback, 10)
-        self.workpiece_existence_pub = self.create_publisher(Bool, '/onrobot_eye/workpiece_existence', qos_profile=qos_status)
+        self.workpiece_existence_pub = self.create_publisher(Bool, '/onrobot_eye/workpiece_existence', qos_status)
         self.is_processing = False
 
         # Socket.IO Kliens
@@ -83,8 +83,8 @@ class OnRobotEyeNode(Node):
 
                         if has_object:
                             self.get_logger().info(f"'{active_name}' érzékelve.")
-                        else:
-                            self.get_logger().info(f" Nincs '{active_name}' érzékelve.")
+                        '''else:
+                            self.get_logger().info(f" Nincs '{active_name}' érzékelve.")'''
                 except Exception as e:
                     self.get_logger().error(f"Hiba a dOutput feldolgozásakor: {e}")
 
@@ -116,7 +116,7 @@ class OnRobotEyeNode(Node):
             target_uid = self.task_uids[self.current_task_index]
             target_name = self.task_mapping.get(target_uid, f"ID_{target_uid}")
             
-            self.get_logger().info(f"Mérés indítása -> Munkadarab: '{target_name}' (ID: {target_uid})")
+            self.get_logger().info(f"\nMérés indítása -> '{target_name}'")
             
             # Léptetjük az indexet a következőre
             self.current_task_index = (self.current_task_index + 1) % len(self.task_uids)

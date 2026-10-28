@@ -11,40 +11,6 @@ from geometry_msgs.msg import Pose2D
 from std_msgs.msg import String
 from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy
 
-class PictureInfoNode(Node):
-    def __init__(self):
-        super().__init__('picture_info_node')
-
-        qos_status = QoSProfile(
-            reliability=ReliabilityPolicy.BEST_EFFORT,
-            history=HistoryPolicy.KEEP_LAST,
-            depth=10
-        )
-
-        self.pose_publisher = self.create_publisher(Pose2D, '/onrobot_eye/target_pose', 10)
-        self.workpiece_type_pub = self.create_publisher(String, '/onrobot_eye/workpiece_type', qos_profile=qos_status)
-        self.detector = WorkpieceDetector(
-            mm_per_pixel_x = 0.0677,
-            mm_per_pixel_y = 0.0666,
-            delta_x_tool = 108.0,
-            delta_y_tool = 32.0,
-            x_home = 461.46,
-            y_home = -66.01,
-            z_home = 519.98
-        )
-
-    def publish_target(self, x_target, y_target, angle_deg):
-        msg = Pose2D()
-        msg.x = float(x_target)
-        msg.y = float(y_target)
-        msg.theta = float(angle_deg)
-        self.pose_publisher.publish(msg)
-
-    def publish_workpiece_name(self, name_str):
-        msg = String()
-        msg.data = name_str
-        self.workpiece_type_pub.publish(msg)
-
 # Onrobot IP cím és süti
 ip = "192.168.10.1"
 cookie_token = "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOjAsInJvbGU" \
@@ -67,109 +33,140 @@ Workpieces = {
     "9A45B701-A8D0-4581-BF40-95F967942449": "Piros háromszög",
 }
 
-sio = socketio.Client()
-picture_node = None
+class PictureInfoNode(Node):
+    def __init__(self):
+        super().__init__('picture_info_node')
 
-def extract_and_save_image(raw_data):
-    global picture_node
-    try:
-        if isinstance(raw_data, str):
+        qos_status = QoSProfile(
+            reliability=ReliabilityPolicy.BEST_EFFORT,
+            history=HistoryPolicy.KEEP_LAST,
+            depth=10
+        )
+
+        self.pose_publisher = self.create_publisher(Pose2D, '/onrobot_eye/target_pose', 10)
+        self.workpiece_type_pub = self.create_publisher(String, '/onrobot_eye/workpiece_type', qos_status)
+        self.detector = WorkpieceDetector(
+            mm_per_pixel_x = 0.0677,
+            mm_per_pixel_y = 0.0666,
+            delta_x_tool = 108.0,
+            delta_y_tool = 32.0,
+            x_home = 461.46,
+            y_home = -66.01,
+            z_home = 519.98
+        )
+
+        self.sio = socketio.Client()
+        self.socket_events()
+
+    def socket_events(self):
+        @self.sio.event
+        def connect():
+            print("Socket.IO csatlakozás sikeres!")
             try:
-                raw_data = json.loads(raw_data)
+                # Vision szoba, ahonnan a képek jönnek
+                self.sio.emit('vision')
+                print("Feliratkozva a vision csatornára.")
             except Exception as e:
-                print("JSON parse hiba: {e}")
+                print("Hiba a feliratkozásnál:", e)
 
-        # Munkadarab keresés
+        @self.sio.on('vision_message')
+        def on_vision_message(data):
+            print("\n[ESEMÉNY]: 'vision_message' érkezett!")
+            self.extract_and_save_image(data)
 
-        if isinstance(raw_data, dict):
-            numeric_id = raw_data.get('Uid')
-            if numeric_id is not None:
-                numeric_id_str = str(numeric_id).strip()
-                part_name = Workpieces.get(numeric_id_str)
-                print(f"Keresett munkadarab: {part_name}")
-            
-            # Képből base64
-            img_b64 = raw_data.get('Image')
-            if img_b64:
-                # Data URL előtag törlés
-                if 'base64,' in img_b64:
-                    img_b64 = img_b64.split('base64,')[1]
-
-                # Kép dekodolás OpenCV-nek
-                img_bytes = base64.b64decode(img_b64)
-                np_arr = np.frombuffer(img_bytes, np.uint8)
-                frame = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
-
-                # Pillanatnyi kép mentése
-                if frame is not None and picture_node is not None:
-                    result = picture_node.detector.process_frame(frame)
-                    if result and result['x_target'] is not None:
-                        print(f"Munkadarab képi eltolása: dx={result['x_mm']:.2f} mm, dy={result['y_mm']:.2f} mm, Rz={result['angle_deg']:.2f}°")
-                        print(f"Cél pozíció a robotnak: X={result['x_target']:.2f} mm, Y={result['y_target']:.2f} mm, Rz={result['rz_target']:.2f}°")
-
-                        picture_node.publish_target(
-                            result['x_target'],
-                            result['y_target'],
-                            result['angle_deg']
-                            )
-
-                        picture_node.publish_workpiece_name(part_name)
-
-                        final_image_to_save = result['annotated_frame']
-                    else:
-                        final_image_to_save = result['annotated_frame'] if result else frame
-
-                    ws_dir = os.path.expanduser('~')
-                    file_path = os.path.join(ws_dir, "kevin_ws", "camera_view.png")
-                    
-                    success = cv2.imwrite(file_path, final_image_to_save)
-                    if success:
-                        print(f"A kép elmentve ide: {file_path}")
-
-                    return True, numeric_id
-                
-    except Exception as e:
-        print("Hiba a kép feldolgozásánál:", e)
-    return False
-
-@sio.event
-def connect():
-    print("Socket.IO csatlakozás sikeres!")
-    try:
-        # Vision szoba, ahonnan a képek jönnek
-        sio.emit('vision')
-        print("Feliratkozva a vision csatornára.")
-    except Exception as e:
-        print("Hiba a feliratkozásnál:", e)
-
-@sio.on('vision_message')
-def on_vision_message(data):
-    print("\n[ESEMÉNY]: 'vision_message' érkezett!")
-    extract_and_save_image(data)
-
-def main():
-    global picture_node
-
-    rclpy.init()
-    picture_node = PictureInfoNode()
-
-    try:
+    def start_socket(self):
         # Webszerver
-        sio.connect(
+        self.sio.connect(
             f'http://{ip}', 
             headers={'Cookie': f'jwt={cookie_token}'}, 
             transports=['websocket', 'polling']
             )
-
         # Folyamatos eseményfigyelés
-        sio.wait()
+        self.sio.wait()
 
+    def publish_target(self, x_target, y_target, angle_deg):
+        msg = Pose2D()
+        msg.x = float(x_target)
+        msg.y = float(y_target)
+        msg.theta = float(angle_deg)
+        self.pose_publisher.publish(msg)
+
+    def publish_workpiece_name(self, name_str):
+        msg = String()
+        msg.data = name_str
+        self.workpiece_type_pub.publish(msg)
+
+    def extract_and_save_image(self, raw_data):
+        try:
+            if isinstance(raw_data, str):
+                try:
+                    raw_data = json.loads(raw_data)
+                except Exception as e:
+                    print("JSON parse hiba: {e}")
+
+            # Munkadarab keresés
+            if isinstance(raw_data, dict):
+                numeric_id = raw_data.get('Uid')
+                if numeric_id is not None:
+                    numeric_id_str = str(numeric_id).strip()
+                    part_name = Workpieces.get(numeric_id_str)
+                    print(f"Keresett munkadarab: {part_name}")
+                
+                # Képből base64
+                img_b64 = raw_data.get('Image')
+                if img_b64:
+                    # Data URL előtag törlés
+                    if 'base64,' in img_b64:
+                        img_b64 = img_b64.split('base64,')[1]
+
+                    # Kép dekodolás OpenCV-nek
+                    img_bytes = base64.b64decode(img_b64)
+                    np_arr = np.frombuffer(img_bytes, np.uint8)
+                    frame = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
+
+                    # Pillanatnyi kép mentése
+                    if frame is not None:
+                        result = self.detector.process_frame(frame)
+                        if result and result['x_target'] is not None:
+                            print(f"Munkadarab képi eltolása: dx={result['x_mm']:.2f} mm, dy={result['y_mm']:.2f} mm, Rz={result['angle_deg']:.2f}°")
+                            print(f"Cél pozíció a robotnak: X={result['x_target']:.2f} mm, Y={result['y_target']:.2f} mm, Rz={result['rz_target']:.2f}°")
+
+                            self.publish_target(
+                                result['x_target'],
+                                result['y_target'],
+                                result['angle_deg']
+                                )
+
+                            self.publish_workpiece_name(part_name)
+
+                            final_image_to_save = result['annotated_frame']
+                        else:
+                            final_image_to_save = result['annotated_frame'] if result else frame
+
+                        ws_dir = os.path.expanduser('~')
+                        file_path = os.path.join(ws_dir, "kevin_ws", "camera_view.png")
+                        
+                        success = cv2.imwrite(file_path, final_image_to_save)
+                        if success:
+                            print(f"A kép elmentve ide: {file_path}")
+
+                        return True, numeric_id
+                    
+        except Exception as e:
+            print("Hiba a kép feldolgozásánál:", e)
+        return False
+
+def main():
+    rclpy.init()
+    node = PictureInfoNode()
+
+    try:
+        node.start_socket()
     except Exception as e:
         print("Hiba történt:", e)
     finally:
-        if picture_node is not None:
-            picture_node.destroy_node()
+        node.destroy_node()
         rclpy.shutdown()
 
-if __name__ == '__name__':
+if __name__ == '__main__':
     main()

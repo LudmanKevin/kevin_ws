@@ -11,6 +11,11 @@ source install/setup.bash
 ros2 launch onrobot_eye_integration pickup_and_putdown_bringup.py
 ```
 
+## Mozgatás paranccsal
+```
+ros2 service call /dsr01/motion/move_joint dsr_msgs2/srv/MoveJoint "{pos: [<cords>], vel: 20.0, acc: 50.0, time: 0.0, mode: 0, radius: 0.0, blend_type: 0, sync_type: 0}"
+```
+
 ## Külön-külön indítás
 
 ### 1. Terminál: API

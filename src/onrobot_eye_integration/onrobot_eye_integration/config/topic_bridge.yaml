@@ -29,3 +29,8 @@ topics:
     type: action_msgs/msg/GoalStatusArray
     from_domain: 89
     to_domain: 88
+
+  /mobile_robot_status:
+    type: std_msgs/msg/String
+    from_domain: 89
+    to_domain: 88
