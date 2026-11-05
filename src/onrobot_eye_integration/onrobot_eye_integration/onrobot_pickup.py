@@ -45,14 +45,16 @@ class OnRobotEyeNode(Node):
 
                 self.rg = RG(options.gripper, options.ip, options.port)
 
-                self.target_sub = self.create_subscription(Pose2D, '/onrobot_eye/target_pose', self.target_pose_callback, 10, callback_group=self.cgb) # Mozgás kikapcsolás teszthez
+                self.target_sub_pickup = self.create_subscription(Pose2D, '/onrobot_eye/target_pose_pickup', self.target_pose_pickup_callback, 10, callback_group=self.cgb) # Mozgás kikapcsolás teszthez
+                self.target_sub_unload = self.create_subscription(Pose2D, '/onrobot_eye/target_pose_unload', self.target_pose_unload_callback, 10, callback_group=self.cgb)
                 self.inspect_pub = self.create_publisher(Bool, '/onrobot_eye/inspecting', 10)
                 self.state_pub = self.create_publisher(Int32, '/onrobot_eye/robot_state', qos_status)
                 self.workpiece_type_sub = self.create_subscription(String, '/onrobot_eye/workpiece_type', self.placed_workpiece_list, qos_status)
                 self.mobilrobot_statemachine_sub = self.create_subscription(String, '/mobile_robot_status', self.mobilrobot_statemachine, qos_status)
 
                 self.robot_state = 0
-                self.pending_target = None
+                self.pending_target_pickup = None
+                self.pending_target_unload = None
                 self.is_busy = False
                 self.workpiece_type = None
                 self.workpieces_on_mobilrobot = []
@@ -60,7 +62,7 @@ class OnRobotEyeNode(Node):
                 self.statemachine = None
                 self.get_logger().info(f"OnRobot Eye Node elindítva.")
                 
-                self.pose_sub = self.create_subscription(GoalStatusArray, '/navigate_to_pose/_action/status', self.nav_status_callback, qos_profile=qos_status, callback_group=self.cgb)
+                self.pose_sub = self.create_subscription(GoalStatusArray, '/navigate_to_pose/_action/status', self.nav_status_callback, qos_status, callback_group=self.cgb)
                 self.last_status = None
                 self.latest_status = None
 
@@ -72,18 +74,26 @@ class OnRobotEyeNode(Node):
                 self.set_accx(60, 40) # (mm/sec^2), (deg/sec^2)
 
                 # Munkatér figyelő és munkadarab felvevő pozíciók
-                self.rx_base = 167.43
-                self.ry_base = 179.84
-                self.z_home = 519.98
-                self.z_pick = 241.0
+                self.rx_pickup_home = 167.43
+                self.ry_pickup_home = 179.84
+                self.z_pickup_home = 519.98
+                self.z_pickup_pick = 241.0
+
+                # Mobilrobot tetejét figyelő és munkadarab felvevő pozíciók
+                self.rx_unload_home = 3.48
+                self.ry_unload_home = -179.39
+                self.z_unload_home = 162.1
+                self.z_unload_pick = -113
 
                 # Pozíciók
                 self.factory_home = self.posj(0, 0, 0, 0, 0, 0)
                 self.robot_home = self.posj(-12.57, -7.36, 110.43, 0, 77.08, -104.77)
-                self.prepare_to_place = self.posj(-183.03, 1.78, 101.17, 3.36, 75.28, -180)
+                self.turn_around = self.posj(-183.03, 1.78, 101.17, 3.36, 75.28, -180)
                 self.red_square_delivery_space = self.posj(-176.48, 84.96, 25.79, 0, 66.25, -176.38)
                 self.red_hexagon_delivery_space = self.posj(-176.14, 72.44, 53.88, 0, 50.72, -176.03)
                 self.red_circle_delivery_space = self.posj(-175.75, 64.87, 71.89, 0, 40.27, -175.61)
+                self.prepare_to_unload = self.posj(-176.47, 71.46, 25.34, 0, 82.57, -268.15)
+                self.final_destination_prepare = self.posj(-90, -.36, 110.44, 0, 77.08, -104.77)
                 self.final_destination = self.posj(-55.65, 32.28, 84.17, 0, 64.08, -190)
 
                 # Mobilrobot állapotok
@@ -127,14 +137,14 @@ class OnRobotEyeNode(Node):
                 self.workpiece_type = msg.data
                 if self.robot_state < 2 and len(self.workpieces_on_mobilrobot) < 3 and self.workpiece_type:
                         self.workpieces_on_mobilrobot.append(self.workpiece_type)
-                        self.get_logger().info(f'Rakomány: {self.workpieces_on_mobilrobot}')
+                        self.get_logger().info(f'\nRakomány: {self.workpieces_on_mobilrobot}')
                                         
         # Mobilrobotról leszedett munkadarabokat kiszedjük a listából
         def remove_workpiece_from_list(self): 
                 if len(self.workpieces_on_mobilrobot) > 0:
+                        self.get_logger().info(f'\nMunkdarab felvevétel: {self.next_workpiece}')
                         self.next_workpiece = self.workpieces_on_mobilrobot.pop(0)
-                        self.get_logger().info(f'Következő munkdarab felvevése: {self.next_workpiece}')
-                        self.get_logger().info(f'Rakomány: {self.workpieces_on_mobilrobot}')
+                        self.get_logger().info(f'\nRakomány: {self.workpieces_on_mobilrobot}')
                         return self.next_workpiece
                 return None
                         
@@ -154,7 +164,9 @@ class OnRobotEyeNode(Node):
                         self.set_robot_mode(self.ROBOT_MODE_AUTONOMOUS)
 
                         # Alaphelyzetbe állítás
-                        self.movej(self.factory_home, vel=10, acc=5)
+                        if os.path.exists(self.file_path):
+                                os.remove(self.file_path)
+                        self.movej(self.factory_home, vel=20, acc=10)
                         self.publish_state(0)
                         self.movej(self.robot_home, vel=100, acc=50)
                         time.sleep(1)
@@ -166,21 +178,26 @@ class OnRobotEyeNode(Node):
                 except Exception as e:
                         self.get_logger().error(f"Hiba a kezdésnél: {e}")
 
-        def target_pose_callback(self, msg: Pose2D):
-                self.pending_target = msg
+        def target_pose_pickup_callback(self, msg: Pose2D):
+                self.pending_target_pickup = msg
                 if self.is_busy == False:
                         self.is_busy = True
                         self.state_switch_to_2()
 
+        def target_pose_unload_callback(self, msg: Pose2D):
+                self.pending_target_unload = msg
+                if self.is_busy == False:
+                        self.is_busy = True
+                        self.state_switch_to_3()
+
         # Robot állapotának átváltása 1 -> 2
         def state_switch_to_2(self):
-                self.get_logger().info(f'robot_state: {self.robot_state}')
                 if self.robot_state < 2:
                         self.publish_state(1)
 
                         while True:
-                                target = self.pending_target
-                                self.pending_target = None
+                                target = self.pending_target_pickup
+                                self.pending_target_pickup = None
 
                                 if target is not None:
                                         self.set_camera_inspection(False)
@@ -191,7 +208,7 @@ class OnRobotEyeNode(Node):
                                 self.new_target = False
 
                                 while time.time() - state_1_countdown < 10:
-                                        if self.pending_target is not None:
+                                        if self.pending_target_pickup is not None:
                                                 self.new_target = True
                                                 break
                                         time.sleep(0.2)
@@ -207,18 +224,37 @@ class OnRobotEyeNode(Node):
         def state_switch_to_3(self):
                 if self.robot_state == 2 and self.latest_status == GoalStatus.STATUS_SUCCEEDED and self.statemachine == 'RETURN_TO_PICKUP':
                         self.publish_state(3)
-                        self.perform_unload()
+
+                        self.set_camera_inspection(False)
+                        self.movej(self.turn_around, vel=100, acc=50)
+                        time.sleep(0.5)
+                        self.movej(self.prepare_to_unload, vel=10, acc=5)
+                        time.sleep(0.5)
+                        if os.path.exists(self.file_path):
+                                os.remove(self.file_path)
+                        self.set_camera_inspection(True)
+                        time.sleep(4)
+
+                        target = self.pending_target_unload
+                        self.pending_target_unload = None
+
+                        if target is not None:
+                                self.set_camera_inspection(False)
+                                self.perform_unload(target.x, target.y, target.theta)
+                                self.set_camera_inspection(True)
 
         # Munkadarabok felvétele és lepakolása a mobilrobotra
         def perform_pickup(self, x_target, y_target, rz_target):
                 try:
                         # Munkadarab felvételi pozíciók meghatározása
-                        above_workpiece = self.posx(x_target, y_target, self.z_home, self.rx_base, self.ry_base, rz_target)
-                        pickup_workpiece = self.posx(x_target, y_target, self.z_pick, self.rx_base, self.ry_base, rz_target)
+                        above_workpiece = self.posx(x_target, y_target, self.z_pickup_home, self.rx_pickup_home, self.ry_pickup_home, rz_target)
+                        pickup_workpiece = self.posx(x_target, y_target, self.z_pickup_pick, self.rx_pickup_home, self.ry_pickup_home, rz_target)
 
                         # Elemgyünk a megtalált munkadarab fölé
                         self.movel(above_workpiece, vel=100, acc=50)
                         time.sleep(0.5)
+
+                        # Töröljük a képet, hogy ne legyenek félrevezető információk
                         if os.path.exists(self.file_path):
                                 os.remove(self.file_path)
 
@@ -231,7 +267,7 @@ class OnRobotEyeNode(Node):
                         # Felemeljük a munkadarabot és átvisszük a másik oldalra
                         self.movel(above_workpiece, vel=100, acc=50)
                         time.sleep(0.5)
-                        self.movej(self.prepare_to_place, vel=100, acc=50)
+                        self.movej(self.turn_around, vel=100, acc=50)
                         time.sleep(0.5)
                         
                         # Ha a mobilrobot nem éri el a pakolópontot 60s-en bellül, akkor visszafordulunk
@@ -259,8 +295,9 @@ class OnRobotEyeNode(Node):
                                         time.sleep(0.5)
                                         self.rg.open_gripper()
                                         time.sleep(1)
-                                        self.movej(self.prepare_to_place, vel=10, acc=5)
+                                        self.movej(self.turn_around, vel=10, acc=5)
                                         time.sleep(0.5)
+                                        place_down_position = None
                         
                         # Visszatérünk a kiidnuló pontba
                         self.movej(self.robot_home, vel=100, acc=50)
@@ -272,40 +309,46 @@ class OnRobotEyeNode(Node):
                         self.get_logger().error(f"Hiba a munkadarab felvételénél: {e}")
 
         # Munkadarabok lepakolása a mobilrobotról
-        def perform_unload(self):
-                self.set_camera_inspection(False)
-                self.is_busy = True
-                self.movej(self.prepare_to_place, vel=100, acc=50)
-                time.sleep(0.5)
-
+        def perform_unload(self, x_target_unload, y_target_unload, rz_target_unload):
                 try:
-                        if len(self.workpieces_on_mobilrobot) > 0 and self.robot_state == 3:
+                        self.get_logger().info(f"Mobilrobotra lerakás: {self.workpiece_type}")
+                        self.get_logger().info(f"Mobilroboton lévő munkadarabok: {self.workpieces_on_mobilrobot[0]}")
+
+                        if len(self.workpieces_on_mobilrobot) > 0:
+                                
                                 self.next_workpiece = self.remove_workpiece_from_list()
-                                pick_up_position = None
-                                                                
-                                if self.next_workpiece == 'Piros négyzet':
-                                        pick_up_position = self.red_square_delivery_space
-                                elif self.next_workpiece == 'Piros hatszög':
-                                        pick_up_position = self.red_hexagon_delivery_space
-                                elif self.next_workpiece == 'Piros kör':
-                                        pick_up_position = self.red_circle_delivery_space
 
-                                if pick_up_position is not None:
-                                        self.movej(pick_up_position, vel=10, acc=5)
-                                        time.sleep(0.5)
-                                        self.rg.close_gripper()
-                                        time.sleep(1)
-                                        self.movej(self.prepare_to_place, vel=10, acc=5)
-                                        time.sleep(0.5)
-                                        self.movej(self.final_destination, vel=20, acc=10)
-                                        time.sleep(0.5)
-                                        self.rg.open_gripper()
-                                        time.sleep(1)
+                                # Munkadarab felvételi pozíciók meghatározása
+                                above_workpiece = self.posx(x_target_unload, y_target_unload, self.z_unload_home, self.rx_unload_home, self.ry_unload_home, rz_target_unload)
+                                pickup_workpiece = self.posx(x_target_unload, y_target_unload, self.z_unload_pick, self.rx_unload_home, self.ry_unload_home, rz_target_unload)
 
-                        self.movej(self.robot_home, vel=100, acc=50)
+                                # Elemgyünk a megtalált munkadarab fölé
+                                self.movel(above_workpiece, vel=100, acc=50)
+                                time.sleep(0.5)
+
+                                # Töröljük a képet, hogy ne legyenek félrevezető információk
+                                if os.path.exists(self.file_path):
+                                        os.remove(self.file_path)
+        
+                                # Lemegyünk érte és megfogjuk
+                                self.movel(pickup_workpiece, vel=100, acc=50)
+                                time.sleep(0.5)
+                                self.rg.close_gripper()
+                                time.sleep(1)
+        
+                                # Felemeljük a munkadarabot és átvisszük a lerakóhelyre
+                                self.movel(above_workpiece, vel=100, acc=50)
+                                time.sleep(0.5)
+                                self.movej(self.final_destination_prepare, vel=100, acc=50)
+                                time.sleep(0.5)
+                                self.movej(self.final_destination, vel=50, acc=25)
+                                time.sleep(0.5)
+                                self.rg.open_gripper()
+                                time.sleep(1)
+
+                        self.movej(self.robot_home, vel=50, acc=25)
                         time.sleep(0.5)
                         self.publish_state(2)
-                        self.set_camera_inspection(True)
 
                 except Exception as e:
                         self.get_logger().error(f"Hiba a munkadarab lepakolásánál: {e}")
@@ -322,9 +365,11 @@ def main(args=None):
         DR_init.__dsr__model = ROBOT_MODEL
         DR_init.__dsr__node = dsr_base_node
 
-        from DSR_ROBOT2 import print_ext_result, movej, movejx, movesj, movesx, movel, movec, move_periodic, move_spiral, moveb, set_velx, set_accx, set_robot_mode
-        from DSR_ROBOT2 import posj, posx, posb
-        from DSR_ROBOT2 import DR_LINE, DR_CIRCLE, DR_BASE, DR_TOOL, DR_AXIS_X, DR_AXIS_Z, DR_MV_MOD_ABS, ROBOT_MODE_AUTONOMOUS
+        from DSR_ROBOT2 import (
+                movej, movel, set_velx, set_accx,
+                set_robot_mode, posj, posx,
+                ROBOT_MODE_AUTONOMOUS
+        )
 
         dsr_functions = {'movej': movej,'movel': movel, 'posj': posj, 'posx': posx, 'set_velx': set_velx, 'set_accx': set_accx, 
                         'set_robot_mode': set_robot_mode, 'ROBOT_MODE_AUTONOMOUS': ROBOT_MODE_AUTONOMOUS}
@@ -338,6 +383,7 @@ def main(args=None):
         except KeyboardInterrupt:
                 pass
         finally:
+                
                 if os.path.exists(eye_node.file_path):
                         os.remove(eye_node.file_path)
                 eye_node.destroy_node()

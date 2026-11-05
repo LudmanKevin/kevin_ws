@@ -3,16 +3,18 @@ import numpy as np
 
 class WorkpieceDetector:
     def __init__(self, mm_per_pixel_x = 0.0677, mm_per_pixel_y = 0.0666,
-                 delta_x_tool = 108.0, delta_y_tool=32.0,
-                 x_home=461.46, y_home=-66.01, z_home=519.98, rz_home=75.23):
+                 x_home=461.46, y_home=-66.01, z_home=519.98, rz_home=75.23,
+                 x_unload=-1139.89, y_unload=-104.98, z_unload=162.08, rz_unload=-88.23):
         self.mm_per_pixel_x = mm_per_pixel_x
         self.mm_per_pixel_y = mm_per_pixel_y
-        self.delta_x_tool = delta_x_tool
-        self.delta_y_tool = delta_y_tool
         self.x_home = x_home
         self.y_home = y_home
         self.z_home = z_home
         self.rz_home = rz_home
+        self.x_unload = x_unload
+        self.y_unload = y_unload
+        self.z_unload = z_unload
+        self.rz_unload = rz_unload
 
     def static_points(self, image, cx_img, cy_img):
         annotated = image.copy()
@@ -33,7 +35,7 @@ class WorkpieceDetector:
 
         hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
 
-        lower_green = np.array([35, 40, 100]) # Színárnyalat, telítettség, fényerő
+        lower_green = np.array([35, 170, 100]) # Színárnyalat, telítettség, fényerő
         upper_green = np.array([85, 255, 255])
 
         mask = cv2.inRange(hsv, lower_green, upper_green)
@@ -58,6 +60,9 @@ class WorkpieceDetector:
                 'z_approach': self.z_home,
                 'angle_deg': None,
                 'rz_target': None,
+                'x_target_unload': None,
+                'y_target_unload': None,
+                'rz_target_unload': None,
                 'annotated_frame': base_annotated_frame
             }
 
@@ -74,6 +79,9 @@ class WorkpieceDetector:
                 'z_approach': self.z_home,
                 'angle_deg': None,
                 'rz_target': None,
+                'x_target_unload': None,
+                'y_target_unload': None,
+                'rz_target_unload': None,
                 'annotated_frame': base_annotated_frame
             }
 
@@ -82,18 +90,6 @@ class WorkpieceDetector:
         x_px = rect[0][0]
         y_px = rect[0][1]
         angle = rect[2]
-
-        if y_px > (h-50) or x_px < 50:
-            return {
-                'x_mm': None,
-                'y_mm': None,
-                'x_target': None,
-                'y_target': None,
-                'z_approach': self.z_home,
-                'angle_deg': None,
-                'rz_target': None,
-                'annotated_frame': base_annotated_frame
-            }
 
         dx_mm = (cx_img - y_px) * self.mm_per_pixel_x
         dy_mm = (x_px - cy_img) * self.mm_per_pixel_y
@@ -127,10 +123,16 @@ class WorkpieceDetector:
         camera_goto = f"X:{cam_goto_x:.1f}mm Y:{cam_goto_y:.1f}mm"
         cv2.putText(annotated_frame, camera_goto, (purple_x_px + 25, purple_y_px),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
-        
+
+        # Munkadarab célpozíciójának kiszámítása a munkaasztalon
         x_target = self.x_home + (cam_goto_x * 10)
         y_target = self.y_home - (cam_goto_y * 10)
         rz_target = self.rz_home + (90 - angle)
+
+        # Munkadarab célpozíciójának kiszámítása mobilrobot tetejéhez
+        x_target_unload = self.x_unload + (cam_goto_x * 10)
+        y_target_unload = self.y_unload - (cam_goto_y * 10)
+        rz_target_unload = self.rz_unload + (90 - angle)
 
         return {
             'x_mm': dx_mm,
@@ -140,5 +142,8 @@ class WorkpieceDetector:
             'z_approach': self.z_home,
             'angle_deg': angle,
             'rz_target': rz_target,
+            'x_target_unload': x_target_unload,
+            'y_target_unload': y_target_unload,
+            'rz_target_unload': rz_target_unload,
             'annotated_frame': annotated_frame
         }

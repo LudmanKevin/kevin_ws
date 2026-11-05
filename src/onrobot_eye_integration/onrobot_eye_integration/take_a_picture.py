@@ -30,7 +30,9 @@ Workpieces = {
     "EFAB2314-4517-4389-9471-D1A4F51EEAA4": "Piros négyzet",
     "80EA452B-B1AE-4D99-BB6A-D32FB90087A5": "Piros hatszög",
     "42DC9A21-30F3-40A4-8F3E-1C0F0998C10B": "Piros kör",
-    "9A45B701-A8D0-4581-BF40-95F967942449": "Piros háromszög",
+    "862F2411-AF1E-42BC-B5B6-D630C817FA9C": "Piros négyzet",
+    "93DA946D-2DA6-40A8-B9C2-4D4CAFEF900D": "Piros hatszög",
+    "600C3622-0EC9-48B5-8F12-02D7A49814D6": "Piros kör"
 }
 
 class PictureInfoNode(Node):
@@ -43,16 +45,19 @@ class PictureInfoNode(Node):
             depth=10
         )
 
-        self.pose_publisher = self.create_publisher(Pose2D, '/onrobot_eye/target_pose', 10)
+        self.pose_publisher_for_pickup = self.create_publisher(Pose2D, '/onrobot_eye/target_pose_pickup', 10)
+        self.pose_publisher_for_unload = self.create_publisher(Pose2D, '/onrobot_eye/target_pose_unload', 10)
         self.workpiece_type_pub = self.create_publisher(String, '/onrobot_eye/workpiece_type', qos_status)
         self.detector = WorkpieceDetector(
             mm_per_pixel_x = 0.0677,
             mm_per_pixel_y = 0.0666,
-            delta_x_tool = 108.0,
-            delta_y_tool = 32.0,
             x_home = 461.46,
             y_home = -66.01,
-            z_home = 519.98
+            z_home = 519.98,
+            x_unload = -1139.89,
+            y_unload = -104.98,
+            z_unload = 162.08,
+            rz_unload = -88.23
         )
 
         self.sio = socketio.Client()
@@ -84,12 +89,19 @@ class PictureInfoNode(Node):
         # Folyamatos eseményfigyelés
         self.sio.wait()
 
-    def publish_target(self, x_target, y_target, angle_deg):
+    def publish_target_for_pickup(self, x_target, y_target, angle_deg):
         msg = Pose2D()
         msg.x = float(x_target)
         msg.y = float(y_target)
         msg.theta = float(angle_deg)
-        self.pose_publisher.publish(msg)
+        self.pose_publisher_for_pickup.publish(msg)
+
+    def publish_target_for_unload(self, x_target_unload, y_target_unload, rz_target_unload):
+        msg = Pose2D()
+        msg.x = float(x_target_unload)
+        msg.y = float(y_target_unload)
+        msg.theta = float(rz_target_unload)
+        self.pose_publisher_for_unload.publish(msg)
 
     def publish_workpiece_name(self, name_str):
         msg = String()
@@ -110,7 +122,7 @@ class PictureInfoNode(Node):
                 if numeric_id is not None:
                     numeric_id_str = str(numeric_id).strip()
                     part_name = Workpieces.get(numeric_id_str)
-                    print(f"Keresett munkadarab: {part_name}")
+                    print(f"Keresett munkadarab: {part_name} [{numeric_id}]")
                 
                 # Képből base64
                 img_b64 = raw_data.get('Image')
@@ -128,14 +140,20 @@ class PictureInfoNode(Node):
                     if frame is not None:
                         result = self.detector.process_frame(frame)
                         if result and result['x_target'] is not None:
-                            print(f"Munkadarab képi eltolása: dx={result['x_mm']:.2f} mm, dy={result['y_mm']:.2f} mm, Rz={result['angle_deg']:.2f}°")
-                            print(f"Cél pozíció a robotnak: X={result['x_target']:.2f} mm, Y={result['y_target']:.2f} mm, Rz={result['rz_target']:.2f}°")
+                            print(f"Cél pozíció a lepakoláshoz: X={result['x_target']:.2f} mm, Y={result['y_target']:.2f} mm, Rz={result['rz_target']:.2f}°")
+                            print(f"Cél pozíció a felvételhez: X={result['x_target_unload']:.2f} mm, Y={result['y_target_unload']:.2f} mm, Rz={result['rz_target_unload']:.2f}°")
 
-                            self.publish_target(
+                            self.publish_target_for_pickup(
                                 result['x_target'],
                                 result['y_target'],
-                                result['angle_deg']
+                                result['angle_deg'],
                                 )
+
+                            self.publish_target_for_unload(
+                                result['x_target_unload'],
+                                result['y_target_unload'],
+                                result['rz_target_unload']
+                            )
 
                             self.publish_workpiece_name(part_name)
 

@@ -23,7 +23,9 @@ class OnRobotEyeNode(Node):
             8: "Piros négyzet",
             10: "Piros hatszög",
             11: "Piros kör",
-            #12: "Piros háromszög",
+            14: "Piros négyzet",
+            15: "Piros hatszög",
+            16: "Piros kör"
         }
         
         # Kinyerjük a Task ID-kat a szótárból
@@ -82,9 +84,8 @@ class OnRobotEyeNode(Node):
                         self.workpiece_existence_pub.publish(msg)
 
                         if has_object:
-                            self.get_logger().info(f"'{active_name}' érzékelve.")
-                        '''else:
-                            self.get_logger().info(f" Nincs '{active_name}' érzékelve.")'''
+                            self.get_logger().info(f"\n{active_name} érzékelve.")
+
                 except Exception as e:
                     self.get_logger().error(f"Hiba a dOutput feldolgozásakor: {e}")
 
@@ -102,7 +103,7 @@ class OnRobotEyeNode(Node):
         payload = {"numericUid": task_uid}
         headers = {"Content-Type": "application/json"}
         try:
-            requests.post(run_url, json=payload, headers=headers, timeout=5.0)
+            requests.post(run_url, json=payload, headers=headers, timeout=7.5)
         except Exception as e:
             self.get_logger().warn(f"Mérés indítási hiba (UID {task_uid}): {e}")
         finally:

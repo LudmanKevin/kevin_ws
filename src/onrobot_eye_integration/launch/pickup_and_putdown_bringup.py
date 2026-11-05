@@ -62,7 +62,7 @@ def generate_launch_description():
     delayed_nodes = TimerAction(
         period=5.0,
         actions=[
-            fastapi_server,
+            #fastapi_server,
             onrobot_eye_node,
             onrobot_pickup_node,
             take_a_picture_node,
