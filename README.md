@@ -9,6 +9,7 @@ RG-2 mefogó driver:
 git clone https://github.com/takuya-ki/onrobot-rg.git
 ```
 
+Build és source:
 ```
 colcon build
 ```
@@ -24,7 +25,7 @@ ros2 launch onrobot_eye_integration pickup_and_putdown_bringup.py
 
 ## Mozgatás paranccsal (bringup kell hozzá)
 ```
-ros2 service call /dsr01/motion/move_joint dsr_msgs2/srv/MoveJoint "{pos: [<cords>], vel: 20.0, acc: 50.0, time: 0.0, mode: 0, radius: 0.0, blend_type: 0, sync_type: 0}"
+ros2 service call /dsr01/motion/move_joint dsr_msgs2/srv/MoveJoint "{pos: [<koordináták>], vel: 20.0, acc: 50.0, time: 0.0, mode: 0, radius: 0.0, blend_type: 0, sync_type: 0}"
 ```
 
 ## Külön-külön indítás
