@@ -45,13 +45,18 @@ class OnRobotEyeNode(Node):
 
                 self.rg = RG(options.gripper, options.ip, options.port)
 
-                self.target_sub_pickup = self.create_subscription(Pose2D, '/onrobot_eye/target_pose_pickup', self.target_pose_pickup_callback, 10, callback_group=self.cgb) # Mozgás kikapcsolás teszthez
+                # Subscription-ök
+                self.target_sub_pickup = self.create_subscription(Pose2D, '/onrobot_eye/target_pose_pickup', self.target_pose_pickup_callback, 10, callback_group=self.cgb)
                 self.target_sub_unload = self.create_subscription(Pose2D, '/onrobot_eye/target_pose_unload', self.target_pose_unload_callback, 10, callback_group=self.cgb)
-                self.inspect_pub = self.create_publisher(Bool, '/onrobot_eye/inspecting', 10)
-                self.state_pub = self.create_publisher(Int32, '/onrobot_eye/robot_state', qos_status)
                 self.workpiece_type_sub = self.create_subscription(String, '/onrobot_eye/workpiece_type', self.placed_workpiece_list, qos_status)
                 self.mobilrobot_statemachine_sub = self.create_subscription(String, '/mobile_robot_status', self.mobilrobot_statemachine, qos_status)
+                self.pose_sub = self.create_subscription(GoalStatusArray, '/navigate_to_pose/_action/status', self.nav_status_callback, qos_status, callback_group=self.cgb)
 
+                # Publisher-ek
+                self.inspect_pub = self.create_publisher(Bool, '/onrobot_eye/inspecting', 10)
+                self.state_pub = self.create_publisher(Int32, '/onrobot_eye/robot_state', qos_status)
+                
+                # Változók alapértékeinek beállítása
                 self.robot_state = 0
                 self.pending_target_pickup = None
                 self.pending_target_unload = None
@@ -60,11 +65,10 @@ class OnRobotEyeNode(Node):
                 self.workpieces_on_mobilrobot = []
                 self.next_workpiece = None
                 self.statemachine = None
-                self.get_logger().info(f"OnRobot Eye Node elindítva.")
-                
-                self.pose_sub = self.create_subscription(GoalStatusArray, '/navigate_to_pose/_action/status', self.nav_status_callback, qos_status, callback_group=self.cgb)
                 self.last_status = None
                 self.latest_status = None
+
+                self.get_logger().info(f"OnRobot Eye Node elindítva.")
 
                 self.ws_dir = os.path.expanduser('~')
                 self.file_path = os.path.join(self.ws_dir, "kevin_ws", "camera_view.png")
@@ -89,11 +93,11 @@ class OnRobotEyeNode(Node):
                 self.factory_home = self.posj(0, 0, 0, 0, 0, 0)
                 self.robot_home = self.posj(-12.57, -7.36, 110.43, 0, 77.08, -104.77)
                 self.turn_around = self.posj(-183.03, 1.78, 101.17, 3.36, 75.28, -180)
-                self.red_square_delivery_space = self.posj(-176.48, 84.96, 25.79, 0, 66.25, -176.38)
-                self.red_hexagon_delivery_space = self.posj(-176.14, 72.44, 53.88, 0, 50.72, -176.03)
-                self.red_circle_delivery_space = self.posj(-175.75, 64.87, 71.89, 0, 40.27, -175.61)
+                self.red_square_delivery_space = self.posj(-174.2, 81.44, 34.09, -0.65, 64.54, -170.99)
+                self.red_hexagon_delivery_space = self.posj(-173.85, 73.89, 51.13, -0.72, 55.06, -170.5)
+                self.red_circle_delivery_space = self.posj(-173.44, 68.32, 64.2, -0.8, 47.57, -169.97)
                 self.prepare_to_unload = self.posj(-176.47, 71.46, 25.34, 0, 82.57, -268.15)
-                self.final_destination_prepare = self.posj(-90, -.36, 110.44, 0, 77.08, -104.77)
+                self.final_destination_prepare = self.posj(-90, -0.36, 110.44, 0, 77.08, -104.77)
                 self.final_destination = self.posj(-55.65, 32.28, 84.17, 0, 64.08, -190)
 
                 # Mobilrobot állapotok
@@ -109,6 +113,7 @@ class OnRobotEyeNode(Node):
 
                 self.start_sequence()
 
+        # Mobilrobot állapotának átadása változónak
         def nav_status_callback(self, msg: GoalStatusArray):
                 if msg.status_list:
                         self.latest_status = msg.status_list[-1].status
@@ -148,7 +153,7 @@ class OnRobotEyeNode(Node):
                         return self.next_workpiece
                 return None
                         
-        # Kamera engedélyezés/tiltás
+        # Kamera engedélyezés/tiltás, és visszajelzés
         def set_camera_inspection(self, enabled: Bool):
                 msg = Bool()
                 msg.data = enabled
@@ -158,12 +163,11 @@ class OnRobotEyeNode(Node):
                 else:
                         self.get_logger().info("Kamera letiltva")
 
-        # Elindulás
+        # Alaphelyzetbe állítás elindításkor
         def start_sequence(self):
                 try:
                         self.set_robot_mode(self.ROBOT_MODE_AUTONOMOUS)
 
-                        # Alaphelyzetbe állítás
                         if os.path.exists(self.file_path):
                                 os.remove(self.file_path)
                         self.movej(self.factory_home, vel=20, acc=10)
@@ -178,12 +182,14 @@ class OnRobotEyeNode(Node):
                 except Exception as e:
                         self.get_logger().error(f"Hiba a kezdésnél: {e}")
 
+        # Munkaasztalon érzékelt munkadarabok koorindinátáinak átadása változónak
         def target_pose_pickup_callback(self, msg: Pose2D):
                 self.pending_target_pickup = msg
                 if self.is_busy == False:
                         self.is_busy = True
                         self.state_switch_to_2()
 
+        # Mobilroboton érzékelt munkadarabok koorindinátáinak átadása változónak
         def target_pose_unload_callback(self, msg: Pose2D):
                 self.pending_target_unload = msg
                 if self.is_busy == False:
