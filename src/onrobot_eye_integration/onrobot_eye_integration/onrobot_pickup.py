@@ -317,9 +317,6 @@ class OnRobotEyeNode(Node):
         # Munkadarabok lepakolása a mobilrobotról
         def perform_unload(self, x_target_unload, y_target_unload, rz_target_unload):
                 try:
-                        self.get_logger().info(f"Mobilrobotra lerakás: {self.workpiece_type}")
-                        self.get_logger().info(f"Mobilroboton lévő munkadarabok: {self.workpieces_on_mobilrobot[0]}")
-
                         if len(self.workpieces_on_mobilrobot) > 0:
                                 
                                 self.next_workpiece = self.remove_workpiece_from_list()

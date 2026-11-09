@@ -153,7 +153,7 @@ class PictureInfoNode(Node):
                                 result['x_target_unload'],
                                 result['y_target_unload'],
                                 result['rz_target_unload']
-                            )
+                                )
 
                             self.publish_workpiece_name(part_name)
 
