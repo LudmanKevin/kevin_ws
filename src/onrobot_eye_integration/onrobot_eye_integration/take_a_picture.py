@@ -48,17 +48,7 @@ class PictureInfoNode(Node):
         self.pose_publisher_for_pickup = self.create_publisher(Pose2D, '/onrobot_eye/target_pose_pickup', 10)
         self.pose_publisher_for_unload = self.create_publisher(Pose2D, '/onrobot_eye/target_pose_unload', 10)
         self.workpiece_type_pub = self.create_publisher(String, '/onrobot_eye/workpiece_type', qos_status)
-        self.detector = WorkpieceDetector(
-            mm_per_pixel_x = 0.0677,
-            mm_per_pixel_y = 0.0666,
-            x_home = 461.46,
-            y_home = -66.01,
-            z_home = 519.98,
-            x_unload = -1139.89,
-            y_unload = -104.98,
-            z_unload = 162.08,
-            rz_unload = -88.23
-        )
+        self.detector = WorkpieceDetector()
 
         self.sio = socketio.Client()
         self.socket_events()
